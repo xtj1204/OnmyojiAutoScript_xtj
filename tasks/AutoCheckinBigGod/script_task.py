@@ -8,6 +8,7 @@ import sys
 import time
 import json
 import random
+import shlex  # [AI-2026-11-04] 用于给 su -c 的命令加引号
 
 # 直接运行本脚本时，需要先将项目根目录加入 Python 路径
 if __name__ == '__main__' and 'tasks' not in sys.modules:
@@ -264,7 +265,12 @@ class ScriptTask(ManualClaimMixin):
         if root_mode == 'adb':
             return self._adb_shell([command], timeout=timeout)
         if root_mode == 'su':
-            return self._adb_shell(['su', '-c', command], timeout=timeout)
+            # [AI-2026-11-04] 修复：adb shell 会把参数用空格拼接，原写法
+            # ['su', '-c', command] 在 command 含空格/分号/重定向时会被拆散，
+            # su 只执行到第一个单词，`nohup ... &` 落到 shell 用户(uid=2000)，
+            # 导致 frida-server 非 root 运行并报 SELinux policy 权限错误。
+            # 用 shlex.quote 给整条命令加引号后可完整传给 su。
+            return self._adb_shell(['su', '-c', shlex.quote(command)], timeout=timeout)
         raise RuntimeError('模拟器未提供Root权限')
 
     def _get_app_pid(self):
