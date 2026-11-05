@@ -26,7 +26,8 @@ class CostumeShikigamiAssets:
 	# description 
 	I_SOU_SWITCH_4_1 = RuleImage(roi_front=(977,603,33,20), roi_back=(962,592,53,34), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk1/sk1_sou_switch_4_1.png")
 	# description 
-	I_SOU_SWITCH_SURE_1 = RuleImage(roi_front=(668,401,180,61), roi_back=(668,401,180,61), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk1/sk1_sou_switch_sure_1.png")
+	# [AI-2026-11-05] 新 UI 确认框：位置 (664,408) 180x64，roi_back 放开搜索余量（对齐默认皮肤）
+	I_SOU_SWITCH_SURE_1 = RuleImage(roi_front=(664,408,180,64), roi_back=(640,380,230,110), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk1/sk1_sou_switch_sure_1.png")
 	# 用于判断是否在式神录里面 
 	I_SOU_CHECK_IN_1 = RuleImage(roi_front=(269,69,50,49), roi_back=(269,69,50,49), threshold=0.8, method="Template matching", file="./tasks/Component/CostumeShikigami/sk1/sk1_sou_check_in_1.png")
 	# 检查是否为第一组 
