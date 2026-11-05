@@ -41,7 +41,8 @@ class RealmRaidAssets:
 	# 打完个后出现的领取奖励 
 	I_SOUL_RAID = RuleImage(roi_front=(577,502,100,100), roi_back=(577,502,100,100), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_soul_raid.png")
 	# 刷新确认/再战确认 
-	I_FRESH_ENSURE = RuleImage(roi_front=(672,403,173,59), roi_back=(672,403,173,59), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_fresh_ensure.png")
+	# [AI-2026-11-05] 新 UI 确认框：按钮改为 180x64 @ (664,408)，roi_back 放开搜索余量
+	I_FRESH_ENSURE = RuleImage(roi_front=(664,408,180,64), roi_back=(640,380,230,110), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_fresh_ensure.png")
 	# 没有锁图片，适配呱太入侵 
 	I_UNLOCK_2 = RuleImage(roi_front=(1002,643,30,41), roi_back=(1002,643,30,41), threshold=0.9, method="Template matching", file="./tasks/RealmRaid/res/res_unlock_2.png")
 	# 以锁图片，适配呱太 
