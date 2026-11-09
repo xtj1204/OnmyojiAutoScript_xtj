@@ -110,6 +110,11 @@ class ReplaceShikigami(BaseTask, ReplaceShikigamiAssets):
             if self.appear_then_click(self.I_U_CONFIRM_SMALL, interval=0.5):
                 clicked = False  # 点击了确认, 恢复选式神的操作
                 continue
+            # [AI-2026-11-09] 从 runhey 版补回：是否育成候补式神按钮
+            # 新 UI 会在"确认寄养所选式神"之上再弹一层"是否育成候补式神"，
+            # 若不点掉这层，脚本会一直点下层被遮挡的确认按钮导致卡死。
+            if self.appear_then_click(self.I_UI_CONFIRM, interval=1) or self.appear_then_click(self.I_UI_CONFIRM_SAMLL, interval=1):
+                continue
             if not self.appear(stop_image):
                 break
             # 与下方点击第7个式神操作互斥, 防止确认按钮还没有出现被下方取消掉
