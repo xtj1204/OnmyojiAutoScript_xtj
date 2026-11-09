@@ -30,7 +30,8 @@ class MetaDemonAssets:
 	# 超鬼王主界面 
 	I_MD_CHECK_MAIN_PAGE = RuleImage(roi_front=(464,231,39,213), roi_back=(449,220,72,244), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_check_main_page.png")
 	# 领取昨日奖励 
-	I_MD_GET_YESTERDAY_REWARD = RuleImage(roi_front=(547,571,183,56), roi_back=(471,523,327,163), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_get_yesterday_reward.png")
+	# [AI-2026-11-09] 新 UI 该按钮右移到 (709,544)，旧 roi_back 右边界 798 覆盖不到，放开搜索区域
+	I_MD_GET_YESTERDAY_REWARD = RuleImage(roi_front=(709,544,183,56), roi_back=(628,487,327,163), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_get_yesterday_reward.png")
 	# 一星鬼王召唤票 
 	I_MD_ONE_STAR = RuleImage(roi_front=(361,312,68,69), roi_back=(261,299,754,133), threshold=0.85, method="Template matching", file="./tasks/MetaDemon/md/md_md_one_star.png")
 	# 二星鬼王召唤票 
