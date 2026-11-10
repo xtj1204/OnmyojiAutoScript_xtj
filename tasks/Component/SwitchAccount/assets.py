@@ -18,7 +18,8 @@ class SwitchAccountAssets:
 	# 登录界面-用户中心按钮默认位置 
 	C_SA_LOGIN_FORM_USER_CENTER = RuleClick(roi_front=(1210,230,40,40), roi_back=(1210,230,40,40), name="sa_login_form_user_center")
 	# 登录界面-切换服务器按钮 
-	C_SA_LOGIN_FORM_SWITCH_SVR_BTN = RuleClick(roi_front=(534,167,47,299), roi_back=(534,167,47,299), name="sa_login_form_switch_svr_btn")
+	# [AI-2026-11-10] 新登录页「◇切换」缩到服务器名右侧，旧左侧竖条(534,167,47,299)已点空
+	C_SA_LOGIN_FORM_SWITCH_SVR_BTN = RuleClick(roi_front=(720,505,85,45), roi_back=(720,505,85,45), name="sa_login_form_switch_svr_btn")
 	# 登录界面-进入游戏按钮 
 	C_SA_LOGIN_FORM_ENTER_GAME_BTN = RuleClick(roi_front=(594,549,94,96), roi_back=(589,544,104,106), name="sa_login_form_enter_game_btn")
 	# 登录界面-选择服务器-底部账号信息展开后的区域 
@@ -70,7 +71,8 @@ class SwitchAccountAssets:
 	# 登录页面服务器名称 
 	O_SA_LOGIN_FORM_SVR_NAME = RuleOcr(roi=(537,212,44,145), area=(537,212,44,145), mode="Single", method="Default", keyword="", name="sa_login_form_svr_name")
 	# 选择服务器界面 底部角色所属服务器名 列表 
-	O_SA_SELECT_SVR_SVR_LIST = RuleOcr(roi=(189,120,193,491), area=(189,120,193,491), mode="Full", method="Default", keyword="", name="sa_select_svr_svr_list")
+	# [AI-2026-11-10] 新 UI 服务器名移入中间卡片区，旧 ROI 框住的是左侧分类栏
+	O_SA_SELECT_SVR_SVR_LIST = RuleOcr(roi=(255,90,675,500), area=(255,90,675,500), mode="Full", method="Default", keyword="", name="sa_select_svr_svr_list")
 	# 选择服务器界面 底部角色名 列表 
 	O_SA_SELECT_SVR_CHARACTER_LIST = RuleOcr(roi=(418,131,648,488), area=(418,131,648,488), mode="Full", method="Default", keyword="", name="sa_select_svr_character_list")
 	# 选择账号界面 账号列表 
@@ -80,7 +82,8 @@ class SwitchAccountAssets:
 	# 登录界面 用户中心(区别于游戏内用户中心) 账户名 
 	O_SA_LOGIN_FORM_USER_CENTER_ACCOUNT = RuleOcr(roi=(290,185,290,50), area=(290,185,290,50), mode="Single", method="Default", keyword="", name="sa_login_form_user_center_account")
 	# 判断是否在 选择服务器 界面的文本特质 
-	O_SA_CHECK_SELECT_SVR = RuleOcr(roi=(252,145,97,32), area=(248,141,102,38), mode="Single", method="Default", keyword="已有角色", name="sa_check_select_svr")
+	# [AI-2026-11-10] 旧 ROI 左侧切掉「已」字，OCR 只能读到「有角色」，与 runhey 端 patch_oas.py 第 1 条同因
+	O_SA_CHECK_SELECT_SVR = RuleOcr(roi=(208,128,145,56), area=(204,124,153,64), mode="Single", method="Default", keyword="已有角色", name="sa_check_select_svr")
 	#  
 	O_SA_LOGIN_FORM_SVR_NAME_OLD = RuleOcr(roi=(545,510,140,40), area=(545,510,140,40), mode="Single", method="Default", keyword="", name="sa_login_form_svr_name_old")
 

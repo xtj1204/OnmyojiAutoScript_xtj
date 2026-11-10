@@ -73,10 +73,38 @@ class LoginAccount(BaseTask, SwitchAccountAssets):
         self.click(self.C_SA_LOGIN_FORM_CANCEL_SVR_SELECT)
         return False
 
-    def switch_character(self, characterName: str):
+    @staticmethod
+    def _name_matches(item: str, target: str) -> bool:
+        """[AI-2026-11-10] OCR 常把角色名/服务器名与相邻文字粘连（实测"如旧"读成"如旧日"），
+        故允许 2 字以内的多余字符，避免严格相等漏判。"""
+        if not target:
+            return False
+        if item == target:
+            return True
+        return target in item and len(item) - len(target) <= 2
+
+    @classmethod
+    def _locate_by_svr(cls, names, boxes, character_name: str, svr_name: str):
+        """[AI-2026-11-10] 同名角色跨服时只按名字会点到第一个（实测两个号都叫 Yuu），
+        改为先定位服务器名，再取它下方同列的、名字匹配的那个角色。
+        找不到返回 None，由调用方回退到原来的按名字匹配。"""
+        for svr_index, text in enumerate(names):
+            if not cls._name_matches(text, svr_name):
+                continue
+            svr_x, svr_y = boxes[svr_index][0][0], boxes[svr_index][0][1]
+            for char_index, item in enumerate(names):
+                if not cls._name_matches(item, character_name):
+                    continue
+                char_x, char_y = boxes[char_index][0][0], boxes[char_index][0][1]
+                if abs(char_x - svr_x) < 150 and 0 < (char_y - svr_y) < 110:
+                    return char_index
+        return None
+
+    def switch_character(self, characterName: str, svrName: str = None):
         """
               需保证账号已登录 且处于登录界面
         @param characterName:
+        @param svrName: 服务器名，用于同名角色消歧；为空时退回只按角色名匹配
         @return:
         @rtype:
         """
@@ -101,9 +129,25 @@ class LoginAccount(BaseTask, SwitchAccountAssets):
             characterNameList = [ocrResItem.ocr_text.lstrip('1234567890 ([<>])【】（）《》') for ocrResItem in ocrRes]
             logger.info(characterNameList)
             ocrResBoxList = [ocrResItem.box for ocrResItem in ocrRes]
-            for index, item in enumerate(characterNameList):
-                if item != characterName:
-                    continue
+            # [AI-2026-11-10] 先按「服务器名 + 角色名」定位，避免同名角色点到别的服；
+            # 定位不到（服务器名 OCR 失败等）再退回原来的按名字匹配，保证不比改动前更差。
+            target_index = None
+            if svrName:
+                target_index = self._locate_by_svr(characterNameList, ocrResBoxList, characterName, svrName)
+            if target_index is None:
+                candidates = [i for i, text in enumerate(characterNameList)
+                              if self._name_matches(text, characterName)]
+                # [AI-2026-11-10] 只传名字（老调用方式）或名字唯一时才猜；同名多个又没定位到
+                # 对应服务器时宁可不点，交给上层 switch_svr 兜底，避免又切到别的号。
+                if len(candidates) == 1 or not svrName:
+                    target_index = candidates[0] if candidates else None
+                elif candidates:
+                    logger.warning(
+                        "同名角色 %s 有 %d 个，未能按服务器 %s 定位，跳过以免切错号",
+                        characterName, len(candidates), svrName,
+                    )
+            if target_index is not None:
+                index = target_index
                 tmp = self.O_SA_SELECT_SVR_CHARACTER_LIST
                 from copy import deepcopy
                 tmpClick = RuleClick(
@@ -119,8 +163,11 @@ class LoginAccount(BaseTask, SwitchAccountAssets):
                 # 此时 tmp 内存储的时角色名位置,而点击角色名没有反应
                 # 所以需要获取到对应的服务器图标位置
                 tmpClick.roi_front[1] -= 30
-                self.ui_click_until_disappear(tmpClick, stop=self.I_SA_CHECK_SELECT_SVR_2,
-                                              interval=3)
+                # [AI-2026-11-10] I_SA_CHECK_SELECT_SVR_2 表示"角色列表已展开"，点角色时它必然在，
+                # 拿它当 stop 会让 ui_click_until_disappear 第一轮就 break、零次点击，
+                # 但下面照样 return True，导致"login Success 了却还是上一个角色"。改为直接点击卡片。
+                self.click(tmpClick, interval=3)
+                self.device.sleep(1.5)
                 logger.info("character %s found,and clicked svr icon", characterName)
                 return True
             if lastCharacterNameList == characterNameList:
@@ -290,7 +337,8 @@ class LoginAccount(BaseTask, SwitchAccountAssets):
                     continue
 
                 # 已登录 查找对应角色
-                if not isCharacterSelected and self.switch_character(accountInfo.character):
+                # [AI-2026-11-10] 传入服务器名，用于同名角色（如两个 Yuu）消歧
+                if not isCharacterSelected and self.switch_character(accountInfo.character, accountInfo.svr):
                     isCharacterSelected = True
                     continue
                 break

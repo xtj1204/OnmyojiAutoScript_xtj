@@ -5,6 +5,7 @@ from module.exception import TaskEnd, RequestHumanTakeover
 from module.logger import logger
 from module.task_loader import task_script_path
 from tasks.Component.SwitchAccount.switch_account import SwitchAccount
+from tasks.DailyTrifles.script_task import ScriptTask as DailyTriflesTask
 from tasks.FindJade import WantedQuestsEx
 from tasks.FindJade.assets import FindJadeAssets
 from tasks.FindJade.config import AccountInfo, FindJade
@@ -31,6 +32,13 @@ class ScriptTask(GameUi, FindJadeAssets):
             wq.fade_conf = self.fade_conf
 
             try:
+                # [AI-2026-11-10] 从 runhey 的 harvest() 精简而来（原逻辑挂在 Restart/login.py 的
+                # app_handle_login 里，每次登录都收菜；xtj 迁移到 LoginService 时未跟过来）。
+                # 这里只作用于 FindJade 的小号：切号成功后先收邮件与庭院事务（含每日签到、一键完成），
+                # 再跑协作。必须放在 wq.run() 之前——没有协作任务时它会直接 raise TaskEnd。
+                dt = DailyTriflesTask(config=self.config, device=self.device)
+                dt.run_pickup_email()
+                dt.run_courtyard_affairs()
                 wq.run()
             except TaskEnd as e:
                 logger.warning("%s-%s TaskEnd", accountInfo.character, accountInfo.svr)
