@@ -136,7 +136,10 @@ class ScriptTask(BaseExploration):
                     self.goto_page(pages.page_exp_entrance)
             case UserStatus.ALONE:
                 self.collect_treasure_box()
-                self.goto_page(pages.page_exp_main)
+                # [AI-2026-11-11] 先停在章节界面，让 exec_exp_page 循环有机会检查突破券数量
+                # （runhey 就是在副本入口这一场景检查的）。直接 goto page_exp_main 会让导航
+                # 系统一口气点过章节界面（实测 0.35 秒），循环拿不到那一帧，检查点等于不存在。
+                self.goto_page(pages.page_exp_entrance)
             case UserStatus.MEMBER:
                 self.collect_treasure_box()
                 self.check_then_accept()

@@ -145,7 +145,9 @@ class ExplorationAssets:
 	# 探索右上角 突破卷的数量 
 	O_REALM_RAID_NUMBER = RuleOcr(roi=(739,11,78,37), area=(739,11,78,37), mode="DigitCounter", method="Default", keyword="", name="realm_raid_number")
 	# （点出困难28时候）探索右上角 突破卷的数量 
-	O_REALM_RAID_NUMBER1 = RuleOcr(roi=(936,10,82,36), area=(936,10,82,36), mode="DigitCounter", method="Default", keyword="", name="realm_raid_number1")
+	# [AI-2026-11-11] 原 roi=(936,10,82,36) 左边切掉十位数：券为两位数(21/30、23/30)时只读到个位(1、3)，
+	# 导致阈值判定永远不成立。右对齐布局下整组会随体力数字宽度左右漂移，故放宽到 (915,5,115,45)。
+	O_REALM_RAID_NUMBER1 = RuleOcr(roi=(915,5,115,45), area=(915,5,115,45), mode="DigitCounter", method="Default", keyword="", name="realm_raid_number1")
 
 
 	# Swipe Rule Assets
