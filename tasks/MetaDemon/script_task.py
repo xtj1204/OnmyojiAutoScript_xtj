@@ -214,6 +214,10 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
             row_click = RuleClick(roi_front=(x - 2, y - 2, 5, 5), roi_back=(x - 2, y - 2, 5, 5),
                                   name=f'md_synthesis_{star_name}')
             if self.click(row_click, interval=2):  # 点击对应星级行
+                # [AI-2026-11-11] 等游戏处理完选中再点开始合成；否则同帧缓存下会抢跑空点一次，
+                # 白耗一次 max_cnt 机会，导致本轮只合成成功一次就退出
+                time.sleep(0.5)
+                self.screenshot()
                 if self.appear_then_click(self.I_MD_START_SYNTHESIS, interval=2.5):  # 点击开始合成
                     click_cnt += 1
                 continue
