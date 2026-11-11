@@ -14,6 +14,12 @@ class MetaDemonAssets:
 	# 前往超鬼王活动 
 	L_GOTO_METADEMON_LIST = RuleList(folder="./tasks/MetaDemon/md", direction="vertical", mode="ocr", roi_back=(53,121,48,557), size=(43, 68), 
 					 array=["版本"])
+	# 裂变之眼合成面板的星级列表
+	# [AI-2026-11-11] 列表是动态的：某星级材料为0时整行消失、列表上移，
+	# 固定坐标的星级图标模板会把下一星级误判为当前星级(一星模板在二星图标上仍有0.980)。
+	# 改用 OCR 文字精确匹配定位行（RuleList 用 ocr_text == name 严格相等，不会逐字退化）
+	L_MD_SYNTHESIS_LIST = RuleList(folder="./tasks/MetaDemon/md", direction="vertical", mode="ocr", roi_back=(280,140,240,560), size=(240,100),
+					 array=["一星裂变之眼", "二星裂变之眼", "三星裂变之眼", "四星裂变之眼", "五星裂变之眼"])
 
 
 	# Image Rule Assets
@@ -26,7 +32,11 @@ class MetaDemonAssets:
 	# 鬼王合成 
 	I_MD_SYNTHESIZE = RuleImage(roi_front=(0,0,100,100), roi_back=(0,0,100,100), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_synthesize.png")
 	# 鬼王页面标志 
-	I_CHECK_BOSS_PAGE = RuleImage(roi_front=(1064,19,43,40), roi_back=(1054,7,62,63), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_check_boss_page.png")
+	# [AI-2026-11-11] 新 UI：原模板是动画中的疲劳度图标（实测 0.56~0.60 随帧漂移，低于阈值），改用静态的「祸主降临」标题
+	I_CHECK_BOSS_PAGE = RuleImage(roi_front=(145,10,150,44), roi_back=(125,0,240,68), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_check_boss_page.png")
+	# 活动主页超鬼王入口「祸王降临」
+	# [AI-2026-11-11] 新 UI 入口改为活动主页右侧竖条，模板取自 self 分支（实机匹配 0.978）
+	I_MD_ACT_ENTER = RuleImage(roi_front=(907,60,76,208), roi_back=(869,14,171,288), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_act_enter.png")
 	# 超鬼王主界面 
 	I_MD_CHECK_MAIN_PAGE = RuleImage(roi_front=(464,231,39,213), roi_back=(449,220,72,244), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_check_main_page.png")
 	# 领取昨日奖励 
@@ -50,6 +60,10 @@ class MetaDemonAssets:
 	I_MD_CHECK_SELECTED = RuleImage(roi_front=(666,285,50,22), roi_back=(264,275,751,39), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_check_selected.png")
 	# 关闭超鬼王内弹窗 
 	I_MD_CLOSE_POPUP = RuleImage(roi_front=(1003,160,41,37), roi_back=(895,39,345,209), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_close_popup.png")
+	# 关闭合成券不足弹出的礼包商店
+	# [AI-2026-11-11] 商店背景里有同形状的暗色 ✕，旧模板(亮✕)在归一化相关下会被暗✕抢匹配(0.935@1091,57)导致点不中；
+	# 这里用窄搜索区(仅覆盖商店右上角)避开暗✕，实机验证 0.948 命中真✕(1176,88)
+	I_MD_CLOSE_SHOP = RuleImage(roi_front=(1176,88,44,44), roi_back=(1150,55,115,115), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_close_shop.png")
 	# 喝茶 
 	I_MD_DRINK_TEA = RuleImage(roi_front=(555,467,168,58), roi_back=(527,455,235,80), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_drink_tea.png")
 	# 活动列表页超鬼王活动标志 

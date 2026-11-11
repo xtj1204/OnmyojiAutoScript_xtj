@@ -5,6 +5,7 @@ import time
 
 import random
 from datetime import datetime
+from module.atom.click import RuleClick
 from module.atom.image import RuleImage
 
 from tasks.Component.GeneralBattle.general_battle import GeneralBattle
@@ -77,8 +78,6 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
             self.screenshot()
             current_page = self.get_current_page()
             match current_page:
-                case ipages.page_meta_demon:
-                    self.goto_page(ipages.page_meta_demon_boss)
                 case ipages.page_meta_demon_boss:
                     if self.check_and_prepare_battle():
                         self.start_battle()
@@ -167,12 +166,12 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
         self.State.synthesis_done = True
         if len(self.conf.meta_demon_config.synthesis_list_v) <= 0:
             return
-        type_ticket_dict: dict[BossType, tuple[RuleImage, int]] = {
-            BossType.ONE_STAR: (self.I_MD_SYNTHESIS_ONE_STAR, 3),
-            BossType.TWO_STARS: (self.I_MD_SYNTHESIS_TWO_STAR, 3),
-            BossType.THREE_STARS: (self.I_MD_SYNTHESIS_THREE_STAR, 3),
-            BossType.FOUR_STARS: (self.I_MD_SYNTHESIS_FOUR_STAR, 3),
-            BossType.FIVE_STARS: (self.I_MD_SYNTHESIS_FIVE_STAR, 2),
+        type_ticket_dict: dict[BossType, tuple[str, int]] = {
+            BossType.ONE_STAR: ("一星裂变之眼", 3),
+            BossType.TWO_STARS: ("二星裂变之眼", 3),
+            BossType.THREE_STARS: ("三星裂变之眼", 3),
+            BossType.FOUR_STARS: ("四星裂变之眼", 3),
+            BossType.FIVE_STARS: ("五星裂变之眼", 2),
         }
         synthesis_list = self.conf.meta_demon_config.synthesis_list_v
         self.ui_click(self.I_MD_SYNTHESIS, self.I_MD_START_SYNTHESIS, interval=0.6)
@@ -180,21 +179,23 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
             self.do_synthesis(type_ticket_dict[boss_type][0], type_ticket_dict[boss_type][1])
         self.ui_click(self.I_MD_CLOSE_POPUP, self.I_MD_SHIKIGAMI, interval=0.6)  # 关闭弹窗退回到鬼王界面
 
-    def do_synthesis(self, target_boss_ticket: RuleImage, need_ticket: int):
+    def do_synthesis(self, star_name: str, need_ticket: int):
         """开始合成鬼王
-        :param target_boss_ticket: 目标鬼王级别门票
+        :param star_name: 目标星级行的文字，如 "一星裂变之眼"
         :param need_ticket: 合成当前级别鬼王需要的门票数量
         """
-        if not self.appear(target_boss_ticket):
-            logger.info(f'{target_boss_ticket} not recognized, skip synthesis')
-            return
+        # [AI-2026-11-11] 合成列表为动态列表：材料为0的星级整行消失、列表上移，
+        # 固定坐标的图标模板会把下一星级误判为当前星级（一星模板在二星图标上仍有0.980分），
+        # 导致一星材料用完后误点二星、触发合成券不足的礼包商店。改为按行文字精确定位，
+        # 且每轮重新定位（本轮合成耗完材料后行会消失，缓存的坐标会落到下一个星级上）。
         click_cnt, max_cnt = 0, random.randint(2, 3)
         while True:
             self.screenshot()
             if click_cnt >= max_cnt:  # 兜底,多次点击开始合成都没有出现获得奖励则退出
                 break
             if self.appear(self.I_MD_SYNTHESIS_NEED_MONEY, interval=0.8):  # 出现花钱购买合成券
-                self.ui_click(self.I_MD_CLOSE_POPUP, self.I_MD_START_SYNTHESIS, interval=0.6)  # 关闭购买弹窗
+                # [AI-2026-11-11] 新 UI 弹的是礼包商店，✕ 与通用弹窗位置不同，改用商店专用关闭按钮
+                self.ui_click(self.I_MD_CLOSE_SHOP, self.I_MD_START_SYNTHESIS, interval=0.6)  # 关闭购买弹窗
                 break
             if self.appear(self.I_UI_REWARD, interval=0.8):  # 出现获得奖励说明合成成功
                 self.click(ipages.random_click(), interval=0.6)
@@ -203,13 +204,20 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
             if self.appear(self.I_MD_SYNTHESIS_EMPTY, interval=0.8):  # 有空位
                 empty_list = self.I_MD_SYNTHESIS_EMPTY.match_all(self.device.image, frame_id=self.device.image_frame_id)
                 if len(empty_list) < need_ticket:  # 空位数量小于需要的门票数量->门票不够则退出
-                    logger.info(f'{target_boss_ticket} ticket not enough, skip synthesis')
+                    logger.info(f'{star_name} ticket not enough, skip synthesis')
                     break
-            if self.appear_then_click(target_boss_ticket, interval=2):  # 点击对应级别鬼王门票
+            coord = self.L_MD_SYNTHESIS_LIST.ocr_appear(self.device.image, star_name)
+            if not isinstance(coord, tuple):
+                logger.info(f'{star_name} not found, skip synthesis')
+                break
+            x, y = int(coord[0]), int(coord[1])
+            row_click = RuleClick(roi_front=(x - 2, y - 2, 5, 5), roi_back=(x - 2, y - 2, 5, 5),
+                                  name=f'md_synthesis_{star_name}')
+            if self.click(row_click, interval=2):  # 点击对应星级行
                 if self.appear_then_click(self.I_MD_START_SYNTHESIS, interval=2.5):  # 点击开始合成
                     click_cnt += 1
                 continue
-        logger.info(f'{target_boss_ticket} synthesis done')
+        logger.info(f'{star_name} synthesis done')
 
     def check_fatigue(self):
         logger.hr('Check fatigue')
