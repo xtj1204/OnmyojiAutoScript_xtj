@@ -253,7 +253,14 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
                 continue
         # [AI-2026-11-12] 门票改用卡面星标识别：一二星票图标同款（卡面相似度 0.949），
         # 旧模板会互相误匹配，导致拿二星票当一星票用（星级判错→强力追击不开）
-        tickets = self.read_ticket_stars()
+        tickets = []
+        for attempt in range(3):
+            time.sleep(0.4)  # 弹窗有展开动画，等渲染稳定再识别
+            self.screenshot()
+            tickets = self.read_ticket_stars()
+            if len(tickets) > 0:
+                break
+            logger.info(f'Retry reading ticket stars ({attempt + 1}/3)')
         if len(tickets) <= 0:
             self.State.done = True
             logger.info('No boss ticket recognized, exit')
@@ -350,7 +357,7 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
         image = getattr(self.device, 'image', None)
         if image is None:
             return None
-        y1, y2 = 355, 392
+        y1, y2 = 348, 402  # 搜索窗口放宽，容忍弹窗位置上下偏移
         x1, x2 = max(0, int(x1)), min(image.shape[1], int(x2))
         region = image[y1:y2, x1:x2]
         if region.size == 0:
