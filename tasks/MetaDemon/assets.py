@@ -37,6 +37,9 @@ class MetaDemonAssets:
 	# 活动主页超鬼王入口「祸王降临」
 	# [AI-2026-11-11] 新 UI 入口改为活动主页右侧竖条，模板取自 self 分支（实机匹配 0.978）
 	I_MD_ACT_ENTER = RuleImage(roi_front=(907,60,76,208), roi_back=(869,14,171,288), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_act_enter.png")
+	# 活动主页超鬼王入口「祸王降临」- 粉白配色皮肤
+	# [AI-2026-11-12] 活动插图会换肤（粉白款），与主款位置相同，取自 self 分支备用模板（新皮肤图实测 0.999）
+	I_MD_ACT_ENTER_BACKUP = RuleImage(roi_front=(907,60,76,208), roi_back=(869,14,171,288), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_act_enter_backup.png")
 	# 超鬼王主界面 
 	I_MD_CHECK_MAIN_PAGE = RuleImage(roi_front=(464,231,39,213), roi_back=(449,220,72,244), threshold=0.8, method="Template matching", file="./tasks/MetaDemon/md/md_md_check_main_page.png")
 	# 领取昨日奖励 

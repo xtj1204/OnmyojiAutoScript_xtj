@@ -21,7 +21,17 @@ page_md_activity.connect(page_act_list, GlobalGameAssets.I_UI_BACK_YELLOW, key="
 # [AI-2026-11-11] 新 UI 中超鬼王主界面与鬼王页已合并为一页，入口改为活动主页右侧「祸王降临」竖条
 page_meta_demon_boss = Page(MetaDemonAssets.I_CHECK_BOSS_PAGE)
 page_meta_demon_boss.add_enter_success_hooks(MetaDemonAssets.I_MD_GET_YESTERDAY_REWARD, MetaDemonAssets.I_MD_CLOSE_POPUP)
-page_md_activity.connect(page_meta_demon_boss, MetaDemonAssets.I_MD_ACT_ENTER, key="page_md_activity->page_meta_demon_boss")
+
+
+def enter_meta_demon_boss(task) -> bool:
+    # [AI-2026-11-12] 活动插图会换肤（红金/粉白两套），主款不中时自动尝试备用款
+    return (
+        task.appear_then_click(MetaDemonAssets.I_MD_ACT_ENTER, interval=0.8)
+        or task.appear_then_click(MetaDemonAssets.I_MD_ACT_ENTER_BACKUP, interval=0.8)
+    )
+
+
+page_md_activity.connect(page_meta_demon_boss, enter_meta_demon_boss, key="page_md_activity->page_meta_demon_boss")
 page_meta_demon_boss.connect(page_md_activity, GlobalGameAssets.I_UI_BACK_YELLOW, key="page_meta_demon_boss->page_md_activity")
 
 page_reward.connect(
