@@ -297,16 +297,17 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
             text = item.ocr_text.replace('：', ':')
             if '持有' not in text:
                 continue
-            left = item.box[0, 0] + ox
-            right = item.box[1, 0] + ox
+            left = int(item.box[0, 0]) + ox
+            right = int(item.box[1, 0]) + ox
             # 星标行在票卡下部、与「持有」文字水平居中对齐
             row_x = int(round((left + right) / 2 - 32))
-            star = self.read_star_row(row_x)
+            # [AI-2026-11-12] 主识别用门票模板的底部星标条在该卡范围内匹配（实测 0.997，
+            # 对定位偏差 ±8px 不敏感）；颜色计数对定位敏感，降为兜底
+            star = self.read_star_by_icon(left - 6, right + 6)
             if star is None:
-                # [AI-2026-11-12] 星标行读不出来时，用门票模板的底部星标条在该卡范围内兜底
-                star = self.read_star_by_icon(left - 6, right + 6)
+                star = self.read_star_row(row_x)
                 if star is not None:
-                    logger.info(f'Boss ticket star by icon: {star.name.lower()} at x={row_x}')
+                    logger.info(f'Boss ticket star by row color: {star.name.lower()} at x={row_x}')
             if star is None:
                 logger.warning(f'Ticket star not recognized at x={row_x}')
                 continue
@@ -350,7 +351,7 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
         if image is None:
             return None
         y1, y2 = 355, 392
-        x1, x2 = max(0, x1), min(image.shape[1], x2)
+        x1, x2 = max(0, int(x1)), min(image.shape[1], int(x2))
         region = image[y1:y2, x1:x2]
         if region.size == 0:
             return None
