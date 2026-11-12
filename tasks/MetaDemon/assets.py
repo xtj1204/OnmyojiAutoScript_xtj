@@ -110,6 +110,10 @@ class MetaDemonAssets:
 	# Ocr Rule Assets
 	# 疲劳度 
 	O_MD_FATIGUE = RuleOcr(roi=(1109,22,114,34), area=(1106,17,124,41), mode="DigitCounter", method="Default", keyword="", name="md_fatigue")
+	# 切换门票弹窗内每张票的「持有:N」文字
+	# [AI-2026-11-12] 用于定位票卡位置：一二星票图标同款，模板无法区分星级，
+	# 改为按 OCR 找到每张卡，再读卡面星标行（6 格橙色点亮数）得到星级
+	O_MD_TICKET_OWNED = RuleOcr(roi=(300,375,700,45), area=(300,375,700,45), mode="Full", method="Default", keyword="", name="md_ticket_owned")
 	# 好友列表 
 	O_MD_FRIENDS = RuleOcr(roi=(435,179,486,351), area=(435,178,489,352), mode="Full", method="Default", keyword="", name="md_friends")
 

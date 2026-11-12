@@ -5,6 +5,9 @@ import time
 
 import random
 from datetime import datetime
+
+import cv2
+
 from module.atom.click import RuleClick
 from module.atom.image import RuleImage
 
@@ -248,22 +251,16 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
                 return False
             if self.appear_then_click(self.I_MD_SWITCH_TICKET, interval=0.6):
                 continue
-        type_ticket_dict: dict[BossType, RuleImage] = {
-            BossType.ONE_STAR: self.I_MD_ONE_STAR,
-            BossType.TWO_STARS: self.I_MD_TWO_STARS,
-            BossType.THREE_STARS: self.I_MD_THREE_STARS,
-            BossType.FOUR_STARS: self.I_MD_FOUR_STARS,
-            BossType.FIVE_STARS: self.I_MD_FIVE_STARS,
-            BossType.SIX_STARS: self.I_MD_SIX_STARS,
-        }
-        # 获取所有存在的鬼王门票
-        can_fire_list = [boss_type for boss_type, ticket_rule_image in type_ticket_dict.items() if
-                         self.appear(ticket_rule_image)]
-        if len(can_fire_list) <= 0:
+        # [AI-2026-11-12] 门票改用卡面星标识别：一二星票图标同款（卡面相似度 0.949），
+        # 旧模板会互相误匹配，导致拿二星票当一星票用（星级判错→强力追击不开）
+        tickets = self.read_ticket_stars()
+        if len(tickets) <= 0:
             self.State.done = True
-            logger.info('No remain boss ticket, exit')
+            logger.info('No boss ticket recognized, exit')
             self.ui_click_until_disappear(self.I_MD_CLOSE_POPUP, interval=0.6)
             return False
+        # 获取所有存在的鬼王门票
+        can_fire_list = [star for star, _, _ in tickets]
         # 根据存在的鬼王门票和配置的鬼王序列过滤出需要召唤的鬼王门票
         need_fire_list = [boss_type for boss_type in self.conf.meta_demon_config.fire_sequence_v if
                           boss_type in can_fire_list]
@@ -278,23 +275,108 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
                 self.State.switch_soul_done = False
             self.current_count = 0
         self.cur_boss_type = need_fire_list[0]  # 更新当前鬼王级别
-        target_ticket_rule_image = type_ticket_dict[self.cur_boss_type]
-        selected = False
         logger.info(f'Summon {self.cur_boss_type.name.lower()} boss')
-        while True:
+        target_card = next(item for item in tickets if item[0] == self.cur_boss_type)
+        self.device.click(target_card[1], target_card[2],
+                          control_name=f'md_ticket_{self.cur_boss_type.name.lower()}')  # 选中目标门票
+        self.ui_click_until_disappear(self.I_MD_GET_BOSS, interval=0.6)  # 立即召唤鬼王
+        for _ in range(20):
             self.screenshot()
-            if self.appear(self.I_MD_FIRE):  # 可以挑战鬼王则退出
+            if self.appear(self.I_MD_FIRE, interval=1.0):  # 召唤完成回到鬼王界面
                 return True
-            if selected and self.appear(self.I_MD_CHECK_SELECTED, interval=0.6):
-                selected_x, selected_y = self.I_MD_CHECK_SELECTED.coord()
-                x, y, w, h = target_ticket_rule_image.roi_front
-                if x <= selected_x <= x + w:  # 确定选中目标鬼王门票, 召唤鬼王
-                    self.ui_click_until_disappear(self.I_MD_GET_BOSS, interval=0.6)
-                    continue
-            if self.appear_then_click(target_ticket_rule_image, interval=0.6):  # 选择对应鬼王门票
-                selected = True
-                continue
+        logger.warning('Summon boss failed, challenge button not found')
         return False
+
+    def read_ticket_stars(self) -> list:
+        """读取切换门票弹窗里每张票的星级
+        :return: [(BossType, 点击x, 点击y), ...]，按从左到右排序
+        """
+        ox, oy = self.O_MD_TICKET_OWNED.roi[0], self.O_MD_TICKET_OWNED.roi[1]
+        tickets = []
+        for item in self.O_MD_TICKET_OWNED.detect_and_ocr(self.device.image):
+            text = item.ocr_text.replace('：', ':')
+            if '持有' not in text:
+                continue
+            left = item.box[0, 0] + ox
+            right = item.box[1, 0] + ox
+            # 星标行在票卡下部、与「持有」文字水平居中对齐
+            row_x = int(round((left + right) / 2 - 32))
+            star = self.read_star_row(row_x)
+            if star is None:
+                # [AI-2026-11-12] 星标行读不出来时，用门票模板的底部星标条在该卡范围内兜底
+                star = self.read_star_by_icon(left - 6, right + 6)
+                if star is not None:
+                    logger.info(f'Boss ticket star by icon: {star.name.lower()} at x={row_x}')
+            if star is None:
+                logger.warning(f'Ticket star not recognized at x={row_x}')
+                continue
+            tickets.append((star, row_x + 32, 332))  # 点击落在卡片中部
+        tickets.sort(key=lambda item: item[1])
+        logger.info(f'Ticket stars: {[item[0].name.lower() for item in tickets]}')
+        return tickets
+
+    def read_star_row(self, x: int):
+        """读取星标行：6 格，橙色点亮数量即星级
+        :return: BossType 或 None（识别失败）
+        """
+        image = getattr(self.device, 'image', None)
+        if image is None:
+            return None
+        y, w, h = 362, 64, 25  # 弹窗位置固定，实测 362~387 为星标行
+        if x < 0 or x + w > image.shape[1]:
+            return None
+        crop = image[y:y + h, x:x + w]
+        hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv, (2, 100, 100), (32, 255, 255))  # 橙色点亮格
+        seg = w / 6
+        lit = 0
+        for i in range(6):
+            ratio = (mask[:, int(round(i * seg)):int(round((i + 1) * seg))] > 0).mean()
+            if ratio > 0.22:  # 灰格实测 ≤0.21，橙格实测 ≥0.25
+                lit += 1
+            else:
+                break
+        if 1 <= lit <= 6:
+            return BossType(lit)
+        return None
+
+    def read_star_by_icon(self, x1: int, x2: int):
+        """用门票模板的底部星标条在单张票卡范围内匹配，兜底识别星级
+        :return: BossType 或 None（匹配不明确时返回 None）
+        """
+        # [AI-2026-11-12] 整张票卡一二星同款无法区分，但底部星标条（橙点数）差异明显：
+        # 实测正确星级 0.997+，次高 0.95，故只在单卡范围内比最高分，避免跨卡误匹配
+        image = getattr(self.device, 'image', None)
+        if image is None:
+            return None
+        y1, y2 = 355, 392
+        x1, x2 = max(0, x1), min(image.shape[1], x2)
+        region = image[y1:y2, x1:x2]
+        if region.size == 0:
+            return None
+        ticket_icons = {
+            BossType.ONE_STAR: self.I_MD_ONE_STAR,
+            BossType.TWO_STARS: self.I_MD_TWO_STARS,
+            BossType.THREE_STARS: self.I_MD_THREE_STARS,
+            BossType.FOUR_STARS: self.I_MD_FOUR_STARS,
+            BossType.FIVE_STARS: self.I_MD_FIVE_STARS,
+            BossType.SIX_STARS: self.I_MD_SIX_STARS,
+        }
+        scores = {}
+        for boss_type, rule in ticket_icons.items():
+            band = cv2.cvtColor(rule.image, cv2.COLOR_RGB2BGR)[-22:, :]
+            if region.shape[0] < band.shape[0] or region.shape[1] < band.shape[1]:
+                continue
+            result = cv2.matchTemplate(region, band, cv2.TM_CCOEFF_NORMED)
+            scores[boss_type] = cv2.minMaxLoc(result)[1]
+        if not scores:
+            return None
+        ranked = sorted(scores.items(), key=lambda item: -item[1])
+        best_type, best_score = ranked[0]
+        second_score = ranked[1][1] if len(ranked) > 1 else 0.0
+        if best_score < 0.9 or best_score - second_score < 0.02:  # 分数太低或与次高太近，视为不确定
+            return None
+        return best_type
 
     def check_and_switch_powerful(self) -> bool:
         """检查并切换是否开启强力"""
