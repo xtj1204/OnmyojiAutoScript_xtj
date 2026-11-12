@@ -334,7 +334,7 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
         if x < 0 or x + w > image.shape[1]:
             return None
         crop = image[y:y + h, x:x + w]
-        hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(crop, cv2.COLOR_RGB2HSV)  # device.image 是 RGB
         mask = cv2.inRange(hsv, (2, 100, 100), (32, 255, 255))  # 橙色点亮格
         seg = w / 6
         lit = 0
@@ -372,7 +372,8 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
         }
         scores = {}
         for boss_type, rule in ticket_icons.items():
-            band = cv2.cvtColor(rule.image, cv2.COLOR_RGB2BGR)[-22:, :]
+            # device.image 与 RuleImage.image 都是 RGB，直接使用，切勿再做通道转换
+            band = rule.image[-22:, :]
             if region.shape[0] < band.shape[0] or region.shape[1] < band.shape[1]:
                 continue
             result = cv2.matchTemplate(region, band, cv2.TM_CCOEFF_NORMED)
