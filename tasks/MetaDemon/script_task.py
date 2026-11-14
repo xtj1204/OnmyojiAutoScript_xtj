@@ -223,6 +223,13 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
                 self.screenshot()
                 if self.appear_then_click(self.I_MD_START_SYNTHESIS, interval=2.5):  # 点击开始合成
                     click_cnt += 1
+                    # [AI-2026-11-14] 合成结果弹窗实测在点击后约 1.6s 才出现（oas2 录屏 58fps 逐帧核对：
+                    # 2.70s 点击 -> 4.29s 弹窗）。不显式等它，循环里下一次 row 点击（2s 节流）会先
+                    # 把弹窗点掉，导致「获得奖励」永远识别不到、click_cnt 不归零，
+                    # 每次进面板只能合 2~3 手就退出（旧 UI 弹窗是即时的，所以没这个问题）。
+                    if self.wait_until_appear(self.I_UI_REWARD, wait_time=3):
+                        self.click(ipages.random_click(), interval=0.6)
+                        click_cnt = 0
                 continue
         logger.info(f'{star_name} synthesis done')
 
