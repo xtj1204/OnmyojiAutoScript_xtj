@@ -72,6 +72,11 @@ class RealmRaidAssets:
 	I_FROG_RAID = RuleImage(roi_front=(511,301,282,100), roi_back=(511,301,282,100), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_frog_raid.png")
 	# 个人 
 	I_RR_PERSON = RuleImage(roi_front=(1203,236,56,100), roi_back=(1203,236,56,155), threshold=0.8, method="Template matching", file="./tasks/RealmRaid/res/res_rr_person.png")
+	# [AI-2026-11-14] 已击破（破字印章）：残局时用于把已击破的格子打码，避免被当成可打目标。
+	# 复用寮突破（RyouToppa）的成品素材，roi_back 由 find_one 逐格动态设置（86x100）。
+	# 实测个人突破画面：finished_1 命中 0.90~0.98、finished_2 命中 0.83~0.99，未击破/仅箭头的格子 ≤0.37。
+	I_RR_FINISHED = RuleImage(roi_front=(0,0,47,37), roi_back=(0,0,86,100), threshold=0.8, method="Template matching", file="./tasks/RyouToppa/dev/finished_1.png")
+	I_RR_FINISHED_NEW = RuleImage(roi_front=(0,0,56,35), roi_back=(0,0,86,100), threshold=0.8, method="Template matching", file="./tasks/RyouToppa/dev/finished_2.png")
 
 
 	# Ocr Rule Assets

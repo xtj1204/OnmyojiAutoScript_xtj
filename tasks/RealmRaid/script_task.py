@@ -341,6 +341,19 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
                 logger.info(f'Position {i+1} is a failed')
                 x, y, w, h = self.partition[i].roi_back
                 image[y:y+h, x:x+w, ...] = 0
+        # [AI-2026-11-14] 已击破（破字印章）的格子同样不能再打，一并打码。
+        # 否则残局（9 格全是箭头或破）时 RES_MEDAL_0 会命中已击破格子的灰色空勋章行
+        # （实测 0.802 刚过 0.8），被当成 0 星目标反复点击 -> GameTooManyClickError 重启游戏。
+        # 打码后 9 格全不可打时 find_one 返回 None，正常走到 "No one can attack and then refresh"。
+        for i, roi in enumerate(self.false_roi):
+            self.I_RR_FINISHED.roi_back = roi
+            if not self.appear(self.I_RR_FINISHED):
+                self.I_RR_FINISHED_NEW.roi_back = roi
+                if not self.appear(self.I_RR_FINISHED_NEW):
+                    continue
+            logger.info(f'Position {i+1} is finished')
+            x, y, w, h = self.partition[i].roi_back
+            image[y:y+h, x:x+w, ...] = 0
         # -----------------------------------------------------
         target = self.order_medal.find_anyone(image)
         if target:
@@ -495,7 +508,9 @@ class ScriptTask(GeneralBattle, GameUi, SwitchSoul, RealmRaidAssets):
     @cached_property
     def false_roi(self) -> list:
         width = 86
-        height = 64
+        # [AI-2026-11-14] 新 UI 的印章位置比原来更低：高度 64 -> 100，
+        # 否则「破」印章下沿被切掉（实测 finished_1 在原 ROI 内只有 0.19~0.27，放宽后 0.90~0.98）
+        height = 100
         x1 = 386
         x2 = 714
         x3 = 1047
