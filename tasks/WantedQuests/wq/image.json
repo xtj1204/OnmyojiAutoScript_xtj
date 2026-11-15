@@ -11,7 +11,7 @@
   {
     "itemName": "wq_done",
     "imageName": "wq_wq_done.png",
-    "roiFront": "248,183,37,39",
+    "roiFront": "162,177,53,56",
     "roiBack": "25,147,652,461",
     "method": "Template matching",
     "threshold": 0.8,

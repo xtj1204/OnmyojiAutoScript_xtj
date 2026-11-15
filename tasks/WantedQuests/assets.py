@@ -111,7 +111,9 @@ class WantedQuestsAssets:
 	# 封印 
 	I_WQ_SEAL = RuleImage(roi_front=(174,184,20,29), roi_back=(27,93,693,488), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/wq/wq_wq_seal.png")
 	# 勾号 
-	I_WQ_DONE = RuleImage(roi_front=(248,183,37,39), roi_back=(25,147,652,461), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/wq/wq_wq_done.png")
+	# [AI-2026-11-15] 悬赏入口「有已完成未领奖」时变成金色对勾，旧 37x39 模板在新 UI 只到 0.56，
+	# pre_work 循环点不到入口 -> 60s 后 GameStuckError。按实机 (162,177,53,56) 重裁，自匹配 1.000
+	I_WQ_DONE = RuleImage(roi_front=(162,177,53,56), roi_back=(25,147,652,461), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/wq/wq_wq_done.png")
 	# 一键追踪 
 	I_TRACE_ENABLE = RuleImage(roi_front=(1140,600,100,94), roi_back=(1132,592,116,110), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/wq/wq_trace_enable.png")
 	# 取消追踪 
