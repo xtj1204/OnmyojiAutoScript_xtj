@@ -127,21 +127,22 @@ class ScriptTask(GameUi, FindJadeAssets):
         raise TaskEnd("FindJade")
 
 
+    # [AI-2026-11-15] 冷却按「时间段」判定：5:00-18:00 为一段，18:00-次日 5:00 为另一段。
+    # 同一段内执行过的号不再重复登录，跨段才允许（与 next_run 的 5:05/18:05 排程一致）。
+    @staticmethod
+    def _time_slot_key(dt: datetime) -> tuple:
+        """18:00-次日5:00 归属起始日，所以凌晨 0-5 点回退一天，避免跨天被误判成同一段。"""
+        if dt.hour < 5:
+            return (dt.date() - timedelta(days=1), 1)
+        return (dt.date(), 0 if dt.hour < 18 else 1)
+
     def is_need_login(self, item: AccountInfo):
         """
-            根据上次登陆时间 判断是否需要登录查找
+            根据上次登陆时间所在时间段判断是否需要登录查找
         @param item:
         @type item:
         """
-        lastTime = item.last_complete_time
-        now = datetime.now()
-        if now - lastTime > timedelta(hours=13):
-            return True
-        if (lastTime.hour >= 18 or lastTime.hour < 5) and (18 > now.hour >= 5):
-            return True
-        if (5 <= lastTime.hour < 18) and now.hour >= 18:
-            return True
-        return False
+        return self._time_slot_key(datetime.now()) != self._time_slot_key(item.last_complete_time)
 
     def CreatObjectFromModule(self, task_name: str, **kwargs):
         module_name = 'script_task'
