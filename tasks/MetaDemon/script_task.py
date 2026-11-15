@@ -7,6 +7,7 @@ import random
 from datetime import datetime
 
 import cv2
+import numpy as np
 
 from module.atom.click import RuleClick
 from module.atom.image import RuleImage
@@ -182,6 +183,33 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
             self.do_synthesis(type_ticket_dict[boss_type][0], type_ticket_dict[boss_type][1])
         self.ui_click(self.I_MD_CLOSE_POPUP, self.I_MD_SHIKIGAMI, interval=0.6)  # 关闭弹窗退回到鬼王界面
 
+    # [AI-2026-11-15] 合成面板中央预览图区域（不同星级位置一致，实机 1280x720 验证 118x119）
+    MD_SYNTHESIS_PREVIEW = (778, 299, 118, 119)
+
+    def synthesis_material_enough(self) -> bool:
+        """判断当前选中的星级材料是否足够合成。
+
+        新 UI：材料足够时中央预览图带金色描边，材料不足时是粉色描边；预览图内部图案
+        会随星级变化（橙色星标数量不同，二星 3 个/三星 4 个），所以不能整图模板匹配，
+        只比较边框环的平均 R-G（device.image 为 RGB）。实测：足够 15~28，不足 64~77。
+        """
+        x, y, w, h = self.MD_SYNTHESIS_PREVIEW
+        img = self.device.image
+        if img is None:
+            return False
+        crop = img[y:y + h, x:x + w]
+        if crop.shape[0] < h or crop.shape[1] < w:
+            return False
+        ring = np.concatenate([
+            crop[:5].reshape(-1, 3),
+            crop[-5:].reshape(-1, 3),
+            crop[:, :5].reshape(-1, 3),
+            crop[:, -5:].reshape(-1, 3),
+        ])
+        r_minus_g = float(ring[:, 0].mean()) - float(ring[:, 1].mean())
+        logger.info(f'synthesis preview R-G={r_minus_g:.1f}')
+        return r_minus_g < 45
+
     def do_synthesis(self, star_name: str, need_ticket: int):
         """开始合成鬼王
         :param star_name: 目标星级行的文字，如 "一星裂变之眼"
@@ -221,6 +249,11 @@ class ScriptTask(GeneralBattle, SwitchSoul, GameUi, MetaDemonAssets):
                 # 白耗一次 max_cnt 机会，导致本轮只合成成功一次就退出
                 time.sleep(0.5)
                 self.screenshot()
+                # [AI-2026-11-15] 只有选中星级行后预览图才会刷新：金边=材料足够，粉边=不足。
+                # 不足时直接结束本轮，避免空点「开始合成」（点一次要白等 3s 才超时）。
+                if not self.synthesis_material_enough():
+                    logger.info(f'{star_name} 材料不足，结束本轮合成')
+                    break
                 if self.appear_then_click(self.I_MD_START_SYNTHESIS, interval=2.5):  # 点击开始合成
                     click_cnt += 1
                     # [AI-2026-11-14] 合成结果弹窗实测在点击后约 1.6s 才出现（oas2 录屏 58fps 逐帧核对：
