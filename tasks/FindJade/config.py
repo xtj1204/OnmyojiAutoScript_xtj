@@ -31,12 +31,6 @@ class InviteInfo(BaseModel):
     invite_history_8: DateTime = Field(default=DateTime.fromisoformat("2023-01-01 00:00:00"),
                                        description='invite_history_8_help')
 
-    # [AI-2026-11-15] 邀请状态（只读展示）：FindJade 每轮任务结束后汇总写入，
-    # 内容按该大号启用的协作类型逐行生成（已邀请 / 邀请失败 / 无协作 / 无需邀请）。
-    # type='status' 会让 OASX 配置页落到只读文本分支（module/config/config_model.py 直接透传 type）。
-    invite_status: str = Field(default="", description='invite_status_help',
-                               json_schema_extra={'type': 'status'})
-
     def need_invite(self, ctype: CooperationType):
         if not ctype & CooperationSelectMask[self.default_invite_type.value]:
             return False
@@ -60,6 +54,16 @@ class InviteInfo(BaseModel):
         return self.name != "" and self.name is not None
 
 
+class JadeAccountInfo(AccountInfo):
+    """FindJade 的小号配置：在通用账号信息上增加只读的「邀请状态」。
+
+    [AI-2026-11-15] 状态按小号记录（哪个号刷出了协作、邀请成不成功），
+    便于人工排查/修正；type='status' 让 OASX 走只读文本分支。
+    """
+    invite_status: str = Field(default="", description='invite_status_help',
+                               json_schema_extra={'type': 'status'})
+
+
 class FindJadeConfig(ConfigBase, extra='allow'):
     # 被邀请人数
     invite_info_count: int = Field(default=1, ge=1, description='invite_info_count_help')
@@ -79,7 +83,7 @@ class FindJade(ConfigBase):
     # 邀请人员信息
     invite_info_list: list[InviteInfo] = None
     # 小号信息
-    sup_account_list: list[AccountInfo] = None
+    sup_account_list: list[JadeAccountInfo] = None
 
     def get_invite_name(self, ctype: CooperationType):
         for info in self.invite_info_list:
@@ -146,7 +150,7 @@ class FindJade(ConfigBase):
                         data[list_name].append(item_type())
 
         validator_list('invite_info_list', v, InviteInfo, invite_info_count)
-        validator_list('sup_account_list', v, AccountInfo, sup_account_count)
+        validator_list('sup_account_list', v, JadeAccountInfo, sup_account_count)
 
         return v
 

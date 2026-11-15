@@ -10,7 +10,7 @@ from tasks.FindJade import WantedQuestsEx
 from tasks.FindJade.assets import FindJadeAssets
 from tasks.FindJade.config import AccountInfo, FindJade
 from tasks.GameUi.game_ui import GameUi
-from tasks.WantedQuests.config import CooperationSelectMask, CooperationType
+from tasks.WantedQuests.config import CooperationSelectMask
 
 
 class ScriptTask(GameUi, FindJadeAssets):
@@ -19,45 +19,42 @@ class ScriptTask(GameUi, FindJadeAssets):
     # [AI-2026-11-15] 「邀请状态」用的协作类型文案，数字与 CooperationType 的值一致
     INVITE_TYPE_LABELS = ((1, '金协'), (2, '勾协'), (4, '粮协'), (8, '体协'))
 
-    def _reset_invite_status(self):
-        """清空本轮记录；_invite_ran 用于区分「跑了但没协作」和「一个号都没跑」"""
-        self._invite_records = {}
-        self._invite_ran = False
-
-    def _collect_invite_status(self, wq):
-        """把某个小号一轮的邀请结果并进来；已邀请优先于邀请失败"""
-        self._invite_ran = True
-        for item in (getattr(wq, 'last_invite_results', None) or []):
-            name = item.get('name')
-            try:
-                ctype = int(item.get('type'))
-            except (TypeError, ValueError):
-                continue
-            rec = self._invite_records.setdefault(name, {})
-            if rec.get(ctype) is True:
-                continue
-            rec[ctype] = bool(item.get('success'))
-
     @staticmethod
     def _has_invite_success(wq) -> bool:
         return any(item.get('success') for item in (getattr(wq, 'last_invite_results', None) or []))
 
-    def _flush_invite_status(self):
-        """按每个大号启用的协作类型汇总成多行文案，写入 invite_status 供 OASX 展示"""
-        for info in (self.fade_conf.invite_info_list or []):
-            mask = CooperationSelectMask[info.default_invite_type.value]
-            rec = self._invite_records.get(info.name, {})
-            lines = []
-            for ctype, label in self.INVITE_TYPE_LABELS:
-                if not (ctype & mask):
-                    continue
-                if ctype in rec:
-                    lines.append(f'{label}：{"已邀请" if rec[ctype] else "邀请失败"}')
-                elif not info.need_invite(CooperationType(ctype)):
+    def _build_invite_status(self, wq) -> str:
+        """汇总「当前这个小号」这一轮的邀请情况，写入该小号的 invite_status。
+
+        - 面板上没出现该类型            -> 无协作
+        - 邀请了但 get_invite_name 为空 -> 无需邀请（大号 13 小时内已被邀请过）
+        - 出现但没走到邀请（类型被 break 截断）-> 未处理
+        """
+        mask = CooperationSelectMask[(self.fade_conf.get_cooperation_type_mask()).value]
+        seen = {int(t) for t in (getattr(wq, 'last_coop_types', None) or [])}
+        results = {}
+        for item in (getattr(wq, 'last_invite_results', None) or []):
+            try:
+                results[int(item.get('type'))] = item.get('success')
+            except (TypeError, ValueError):
+                continue
+        lines = []
+        for ctype, label in self.INVITE_TYPE_LABELS:
+            if not (ctype & mask):
+                continue
+            if ctype in results:
+                success = results[ctype]
+                if success is None:
                     lines.append(f'{label}：无需邀请')
+                elif success:
+                    lines.append(f'{label}：已邀请')
                 else:
-                    lines.append(f'{label}：无协作')
-            info.invite_status = '\n'.join(lines)
+                    lines.append(f'{label}：邀请失败')
+            elif ctype in seen:
+                lines.append(f'{label}：未处理')
+            else:
+                lines.append(f'{label}：无协作')
+        return '\n'.join(lines)
 
     def _switch_back(self):
         """按 return_account 切回；失败重试 2 次仍不成功则交人工（游戏会停在登录页，继续跑会连累后续任务）"""
@@ -77,7 +74,6 @@ class ScriptTask(GameUi, FindJadeAssets):
 
     def run(self):
         self.fade_conf = self.config.find_jade
-        self._reset_invite_status()
         switched = False
 
         for accountInfo in self.fade_conf.sup_account_list:
@@ -106,9 +102,8 @@ class ScriptTask(GameUi, FindJadeAssets):
                 wq.run()
             except TaskEnd as e:
                 logger.warning("%s-%s TaskEnd", accountInfo.character, accountInfo.svr)
-                # [AI-2026-11-15] 汇总本轮邀请结果，随配置一起落盘
-                self._collect_invite_status(wq)
-                self._flush_invite_status()
+                # [AI-2026-11-15] 把本轮结果写到「这个」小号的邀请状态上，随配置一起落盘
+                accountInfo.invite_status = self._build_invite_status(wq)
                 invited = self._has_invite_success(wq)
                 # 更新配置文件中的时间
                 self.fade_conf.update_account_login_history(accountInfo)
@@ -123,10 +118,6 @@ class ScriptTask(GameUi, FindJadeAssets):
             if invited and not self.fade_conf.find_jade_config.continue_after_invited:
                 logger.info('邀请成功且未勾选「邀请成功后继续切换小号」，提前结束小号循环')
                 break
-
-        if getattr(self, '_invite_ran', False):
-            self._flush_invite_status()
-            self.save_config()
 
         # [AI-2026-11-15] 按配置切回原账号（留空则不切，保持原有行为）
         if switched:

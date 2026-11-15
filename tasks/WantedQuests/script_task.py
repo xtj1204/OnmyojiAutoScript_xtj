@@ -498,13 +498,15 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
 
         """
         self.screenshot()
+        # [AI-2026-11-15] 本轮各协作的邀请结果/面板上出现过的协作类型，
+        # 供 FindJade 汇总「邀请状态」与判断是否提前结束小号循环
+        self.last_invite_results = []
+        self.last_coop_types = []
         if not any(self.appear(button) for button in self.cooperation_buttons()):
             return False
 
-        # [AI-2026-11-15] 本轮各协作的邀请结果，供 FindJade 汇总「邀请状态」与提前结束判断
-        self.last_invite_results = []
-
         ret = self.get_cooperation_info()
+        self.last_coop_types = [item['type'] for item in ret]
         if len(ret) == 0:
             logger.info("no Cooperation found")
             return False
@@ -528,6 +530,12 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                 name = self.get_invite_vip_name(item['type'])
             else:
                 name = name_all
+            # [AI-2026-11-15] 名字为空 = 大号 13 小时内已被邀请过（get_invite_name 返回 ""）。
+            # 直接跳过：否则会拿空关键字去好友列表里白试 5 次（约 100 秒）并记成失败。
+            if not name:
+                logger.info("cooperationType %s needs no invite, skipped", item['type'])
+                self.last_invite_results.append({'type': item['type'], 'name': '', 'success': None})
+                continue
             logger.warning("find cooperationType %s ,start invite %s", item['type'], name)
             while index < 5:
                 if self.cooperation_invite(item['inviteBtn'], name):
