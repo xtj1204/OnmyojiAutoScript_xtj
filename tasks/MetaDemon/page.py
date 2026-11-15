@@ -14,7 +14,10 @@ from tasks.GlobalGame.assets import GlobalGameAssets
 from tasks.MetaDemon.assets import MetaDemonAssets
 
 # [AI-2026-11-11] 新 UI：活动总览默认选中当期版本活动，直接点「前往活动」进入活动主页
-page_md_activity = Page(MetaDemonAssets.I_MD_ACT_ENTER)
+# [AI-2026-11-15] 活动主页入口会换肤，页面识别同样要认两套：原先只认红金款，
+# 换肤后 page_md_activity 识别不到 -> 导航报 "Transition cannot reach page_md_activity"
+# （实机 11-15：红金 0.185 / 粉白 0.989）。Page 传元组会归一成 AnyMatcher（任一命中即可）。
+page_md_activity = Page((MetaDemonAssets.I_MD_ACT_ENTER, MetaDemonAssets.I_MD_ACT_ENTER_BACKUP))
 page_act_list.connect(page_md_activity, GameUiAssets.I_ACT_LIST_GOTO_ACT, key="page_act_list->page_md_activity")
 page_md_activity.connect(page_act_list, GlobalGameAssets.I_UI_BACK_YELLOW, key="page_md_activity->page_act_list")
 
