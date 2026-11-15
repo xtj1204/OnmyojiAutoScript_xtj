@@ -501,6 +501,9 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         if not any(self.appear(button) for button in self.cooperation_buttons()):
             return False
 
+        # [AI-2026-11-15] 本轮各协作的邀请结果，供 FindJade 汇总「邀请状态」与提前结束判断
+        self.last_invite_results = []
+
         ret = self.get_cooperation_info()
         if len(ret) == 0:
             logger.info("no Cooperation found")
@@ -542,6 +545,12 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                 if (self.get_config()).cooperation_only:
                     logger.info("start trace_one")
                     self.trace_one(item['inviteBtn'])
+            # [AI-2026-11-15] 记录本次结果（成功/失败），供 FindJade 使用
+            self.last_invite_results.append({
+                'type': item['type'],
+                'name': name,
+                'success': bool(item['inviteResult']),
+            })
         return ret
 
     def cooperation_invite(self, btn: RuleImage, name: str):

@@ -31,6 +31,12 @@ class InviteInfo(BaseModel):
     invite_history_8: DateTime = Field(default=DateTime.fromisoformat("2023-01-01 00:00:00"),
                                        description='invite_history_8_help')
 
+    # [AI-2026-11-15] 邀请状态（只读展示）：FindJade 每轮任务结束后汇总写入，
+    # 内容按该大号启用的协作类型逐行生成（已邀请 / 邀请失败 / 无协作 / 无需邀请）。
+    # type='status' 会让 OASX 配置页落到只读文本分支（module/config/config_model.py 直接透传 type）。
+    invite_status: str = Field(default="", description='invite_status_help',
+                               json_schema_extra={'type': 'status'})
+
     def need_invite(self, ctype: CooperationType):
         if not ctype & CooperationSelectMask[self.default_invite_type.value]:
             return False
@@ -59,11 +65,17 @@ class FindJadeConfig(ConfigBase, extra='allow'):
     invite_info_count: int = Field(default=1, ge=1, description='invite_info_count_help')
     # 小号数
     sup_account_count: int = Field(default=1, ge=1, description='sup_account_count_help')
+    # [AI-2026-11-15] 邀请成功后是否继续切小号。放在本组内而非 FindJade 顶层：
+    # module/config/config_model.py 的 extract_groups 只支持顶层是模型或列表，标量会抛 KeyError。
+    continue_after_invited: bool = Field(default=True, description='continue_after_invited_help')
 
 
 class FindJade(ConfigBase):
     scheduler: Scheduler = Field(default_factory=Scheduler)
     find_jade_config: FindJadeConfig = Field(default_factory=FindJadeConfig)
+    # [AI-2026-11-15] 执行完任务切回账号：角色名留空则不切回（沿用现有行为）。
+    # 必须是顶层模型（$ref），配置页才会渲染成独立卡片。
+    return_account: AccountInfo = Field(default_factory=AccountInfo, description='return_account_help')
     # 邀请人员信息
     invite_info_list: list[InviteInfo] = None
     # 小号信息
