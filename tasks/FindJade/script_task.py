@@ -169,12 +169,15 @@ class ScriptTask(GameUi, FindJadeAssets):
                  success: bool = None, server: bool = True, target: datetime = None) -> None:
         now = datetime.now()
         if success:
-            if 5 <= now.hour < 18:
-                self.set_next_run(task, target=now.replace(hour=18, minute=5))
-            elif now.hour < 5:
-                self.set_next_run(task, target=now.replace(hour=5, minute=5))
+            # [AI-2026-11-15] 排到「下一个时间段」开始，与 is_need_login 的分段保持一致：
+            #   凌晨(0-5 仍属前一晚) -> 当天 05:05；早上段(5-18) -> 当天 18:05；晚上段(18-24) -> 次日 05:05
+            if now.hour < 5:
+                target = now.replace(hour=5, minute=5)
+            elif now.hour < 18:
+                target = now.replace(hour=18, minute=5)
             else:
-                self.set_next_run(task, target=now.replace(hour=18, minute=5) + timedelta(days=1))
+                target = (now + timedelta(days=1)).replace(hour=5, minute=5)
+            self.set_next_run(task, target=target)
         else:
             self.set_next_run(task, target=now + timedelta(minutes=10))
 
