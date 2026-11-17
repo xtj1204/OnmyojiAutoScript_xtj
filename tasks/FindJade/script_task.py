@@ -104,8 +104,6 @@ class ScriptTask(GameUi, FindJadeAssets):
                 logger.warning("%s-%s TaskEnd", accountInfo.character, accountInfo.svr)
                 # [AI-2026-11-15] 把本轮结果写到「这个」小号的邀请状态上，随配置一起落盘
                 accountInfo.invite_status = self._build_invite_status(wq)
-                logger.info('%s-%s invite status: %s', accountInfo.character, accountInfo.svr,
-                            accountInfo.invite_status.replace('\n', ' | '))
                 invited = self._has_invite_success(wq)
                 # 更新配置文件中的时间
                 self.fade_conf.update_account_login_history(accountInfo)
@@ -114,12 +112,6 @@ class ScriptTask(GameUi, FindJadeAssets):
                 raise
             except Exception as e:
                 logger.error(e)
-                # [AI-2026-11-17] 异常路径也要落状态：邀请往往已经成功，只是后面的追踪/切号出错。
-                # 不写的话界面会停留在上一轮的旧值（例如已邀请却显示「无协作」）。
-                accountInfo.invite_status = self._build_invite_status(wq)
-                logger.info('%s-%s invite status: %s', accountInfo.character, accountInfo.svr,
-                            accountInfo.invite_status.replace('\n', ' | '))
-                self.save_config()
                 self.next_run("FindJade", success=False)
 
             # [AI-2026-11-15] 未勾选「邀请成功后继续切换小号」时，受邀成功就停止切号
