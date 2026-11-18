@@ -35,6 +35,7 @@ class ConfigMenu:
             "Hyakkiyakou",
             "HeroTest",
             "FindJade",
+            "FriendBattle",
             "MemoryScrolls"
         ]
         # 阴阳寮
