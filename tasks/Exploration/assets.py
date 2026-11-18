@@ -147,7 +147,10 @@ class ExplorationAssets:
 	# （点出困难28时候）探索右上角 突破卷的数量 
 	# [AI-2026-11-11] 原 roi=(936,10,82,36) 左边切掉十位数：券为两位数(21/30、23/30)时只读到个位(1、3)，
 	# 导致阈值判定永远不成立。右对齐布局下整组会随体力数字宽度左右漂移，故放宽到 (915,5,115,45)。
-	O_REALM_RAID_NUMBER1 = RuleOcr(roi=(915,5,115,45), area=(915,5,115,45), mode="DigitCounter", method="Default", keyword="", name="realm_raid_number1")
+	# [AI-2026-11-18] 超鬼王门票结束后突破券右移约 12px（数字 927~990，旗帜图标右缘 ~925）：
+	# 915 这个左边界压到图标上，OCR 整块失败（11-18 22:00 日志 No text detected in ROI）；
+	# 退回 936 又会切掉十位。改为 (926,12,80,34)，左边界落在图标与数字的空隙里。
+	O_REALM_RAID_NUMBER1 = RuleOcr(roi=(926,12,80,34), area=(926,12,80,34), mode="DigitCounter", method="Default", keyword="", name="realm_raid_number1")
 
 
 	# Swipe Rule Assets
