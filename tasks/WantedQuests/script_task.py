@@ -555,8 +555,14 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             if item['inviteResult']:
                 self.invite_success_callback(item['type'], name, bool(item.get('realworld')))
                 if (self.get_config()).cooperation_only:
-                    logger.info("start trace_one")
-                    self.trace_one(item['inviteBtn'])
+                    # [AI-2026-11-19] 现世勾协的详情页没有「追踪」按钮（是现世妖怪扫描入口），
+                    # 模拟器打不开，硬追踪会一直点卡片直到 GameTooManyClickError（11-17 如旧即是此因）。
+                    # 大号在手机上从协作列表直接领取即可，不需要追踪。
+                    if item.get('realworld'):
+                        logger.info("real-world cooperation, skip trace_one")
+                    else:
+                        logger.info("start trace_one")
+                        self.trace_one(item['inviteBtn'])
             # [AI-2026-11-15] 记录本次结果（成功/失败），供 FindJade 使用
             self.last_invite_results.append({
                 'type': item['type'],
