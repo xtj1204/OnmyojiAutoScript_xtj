@@ -5,7 +5,7 @@ from pydantic import Field, BaseModel, model_validator, model_serializer, Valida
 
 from deploy.logger import logger
 from tasks.Component.SwitchAccount.switch_account_config import AccountInfo
-from tasks.Component.config_base import ConfigBase, DateTime
+from tasks.Component.config_base import ConfigBase, DateTime, dynamic_hide
 from tasks.Component.config_scheduler import Scheduler
 from tasks.WantedQuests.config import CooperationSelectMaskDescription, CooperationSelectMask, CooperationType
 
@@ -30,11 +30,24 @@ class InviteInfo(BaseModel):
                                        description='invite_history_4_help')
     invite_history_8: DateTime = Field(default=DateTime.fromisoformat("2023-01-01 00:00:00"),
                                        description='invite_history_8_help')
+    # [AI-2026-11-19] 现世勾协单独计时：大号可以同时挂现世勾协和普通勾协，两者互不占额度。
+    # 界面上不显示（dynamic_hide），只在配置文件里保存。
+    invite_history_jade_realworld: DateTime = Field(default=DateTime.fromisoformat("2023-01-01 00:00:00"),
+                                                    description='invite_history_jade_realworld_help')
 
-    def need_invite(self, ctype: CooperationType):
+    hide_fields = dynamic_hide('invite_history_jade_realworld')
+
+    @staticmethod
+    def _history_field(ctype: CooperationType, realworld: bool = False) -> str:
+        """现世勾协用独立字段，其余类型沿用 invite_history_<类型值>。"""
+        if ctype == CooperationType.Jade and realworld:
+            return 'invite_history_jade_realworld'
+        return "invite_history_" + str(ctype)
+
+    def need_invite(self, ctype: CooperationType, realworld: bool = False):
         if not ctype & CooperationSelectMask[self.default_invite_type.value]:
             return False
-        last_time = self.__getattribute__("invite_history_" + str(ctype))
+        last_time = self.__getattribute__(self._history_field(ctype, realworld))
 
         now = datetime.now()
         if now - last_time > timedelta(hours=13):
@@ -45,10 +58,10 @@ class InviteInfo(BaseModel):
             return True
         return False
 
-    def update_invite_history(self, ctype: CooperationType, name=None):
+    def update_invite_history(self, ctype: CooperationType, name=None, realworld: bool = False):
         if name != self.name:
             return
-        self.__setattr__("invite_history_" + str(ctype), datetime.now())
+        self.__setattr__(self._history_field(ctype, realworld), datetime.now())
 
     def is_valid(self):
         return self.name != "" and self.name is not None
@@ -85,18 +98,18 @@ class FindJade(ConfigBase):
     # 小号信息
     sup_account_list: list[JadeAccountInfo] = None
 
-    def get_invite_name(self, ctype: CooperationType):
+    def get_invite_name(self, ctype: CooperationType, realworld: bool = False):
         for info in self.invite_info_list:
-            if info.need_invite(ctype):
+            if info.need_invite(ctype, realworld):
                 return info.name
         return ""
 
-    def update_invite_history(self, ctype: CooperationType, name: str):
+    def update_invite_history(self, ctype: CooperationType, name: str, realworld: bool = False):
         # 更新邀请信息
         for info in self.invite_info_list:
             if info.name != name:
                 continue
-            info.update_invite_history(ctype, name)
+            info.update_invite_history(ctype, name, realworld)
 
     def update_account_login_history(self, account: AccountInfo):
         accountInfoList = self.sup_account_list
@@ -158,10 +171,13 @@ class FindJade(ConfigBase):
     def serializer_model(self, value: Any) -> Dict[str, Any]:
         properties = self.__dict__
         data = {}
+        # [AI-2026-11-19] 把序列化上下文透传给子模型，否则 dynamic_hide 在自定义序列化里会失效
+        # （配置页拿 schema 时传的是 {'hide': True}，用来隐藏 invite_history_jade_realworld）。
+        context = getattr(value, 'context', None)
 
         def v_dump(v):
             try:
-                return v.model_dump()
+                return v.model_dump(context=context) if context else v.model_dump()
             except AttributeError as e:
                 logger.error(e)
                 return v

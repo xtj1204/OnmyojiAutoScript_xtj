@@ -10,7 +10,7 @@ from tasks.FindJade import WantedQuestsEx
 from tasks.FindJade.assets import FindJadeAssets
 from tasks.FindJade.config import AccountInfo, FindJade
 from tasks.GameUi.game_ui import GameUi
-from tasks.WantedQuests.config import CooperationSelectMask
+from tasks.WantedQuests.config import CooperationSelectMask, CooperationType
 
 
 class ScriptTask(GameUi, FindJadeAssets):
@@ -27,34 +27,52 @@ class ScriptTask(GameUi, FindJadeAssets):
         """汇总「当前这个小号」这一轮的邀请情况，写入该小号的 invite_status。
 
         - 面板上没出现该类型            -> 无协作
-        - 邀请了但 get_invite_name 为空 -> 无需邀请（大号 13 小时内已被邀请过）
+        - 邀请了但 get_invite_name 为空 -> 无需邀请（大号窗口内已被邀请过）
         - 出现但没走到邀请（类型被 break 截断）-> 未处理
+
+        [AI-2026-11-19] 勾协区分现世/普通：结果与「出现过的类型」都按 (类型, 是否现世) 记录，
+        只有出现或处理过现世时才多输出一行「勾协(现世)」，避免日常多一行噪音。
         """
         mask = CooperationSelectMask[(self.fade_conf.get_cooperation_type_mask()).value]
-        seen = {int(t) for t in (getattr(wq, 'last_coop_types', None) or [])}
+        seen_rw = {(int(t), bool(rw)) for t, rw in (getattr(wq, 'last_coop_realworld', None) or [])}
+        # 兼容旧字段（只记类型，不知道现世与否）：这些一律按普通处理
+        for t in (getattr(wq, 'last_coop_types', None) or []):
+            try:
+                seen_rw.add((int(t), False))
+            except (TypeError, ValueError):
+                continue
+
         results = {}
         for item in (getattr(wq, 'last_invite_results', None) or []):
             try:
-                results[int(item.get('type'))] = item.get('success')
+                results[(int(item.get('type')), bool(item.get('realworld')))] = item.get('success')
             except (TypeError, ValueError):
                 continue
+
         lines = []
         for ctype, label in self.INVITE_TYPE_LABELS:
             if not (ctype & mask):
                 continue
-            if ctype in results:
-                success = results[ctype]
-                if success is None:
-                    lines.append(f'{label}：无需邀请')
-                elif success:
-                    lines.append(f'{label}：已邀请')
-                else:
-                    lines.append(f'{label}：邀请失败')
-            elif ctype in seen:
-                lines.append(f'{label}：未处理')
-            else:
-                lines.append(f'{label}：无协作')
+            plain_key, realworld_key = (ctype, False), (ctype, True)
+            has_plain = plain_key in results or plain_key in seen_rw
+            has_realworld = realworld_key in results or realworld_key in seen_rw
+            if has_plain or not has_realworld:
+                lines.append(self._status_line(label, plain_key in results,
+                                               results.get(plain_key), plain_key in seen_rw))
+            if ctype == CooperationType.Jade and has_realworld:
+                lines.append(self._status_line('勾协(现世)', realworld_key in results,
+                                               results.get(realworld_key), realworld_key in seen_rw))
         return '\n'.join(lines)
+
+    @staticmethod
+    def _status_line(label: str, in_results: bool, success, seen: bool) -> str:
+        if in_results:
+            if success is None:
+                return f'{label}：无需邀请'
+            return f'{label}：已邀请' if success else f'{label}：邀请失败'
+        if seen:
+            return f'{label}：未处理'
+        return f'{label}：无协作'
 
     def _switch_back(self):
         """按 return_account 切回；失败重试 2 次仍不成功则交人工（游戏会停在登录页，继续跑会连累后续任务）"""
@@ -81,6 +99,11 @@ class ScriptTask(GameUi, FindJadeAssets):
             if not self.is_need_login(accountInfo):
                 logger.warning("%s Skipped last Login Time:%s", accountInfo.character, accountInfo.last_complete_time)
                 continue
+            # [AI-2026-11-19] 轮到该号就先清空邀请状态，跑完再赋新值：
+            # 中途异常/被跳过时显示空，而不是残留上一轮的旧结果。
+            if accountInfo.invite_status:
+                accountInfo.invite_status = ''
+                self.save_config()
             suc = SwitchAccount(self.config, self.device, accountInfo).switchAccount()
             if not suc:
                 logger.warning("switch to %s-%s Failed", accountInfo.character, accountInfo.svr)

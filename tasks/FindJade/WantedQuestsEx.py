@@ -5,20 +5,21 @@ def need_invite_vip(self):
     return True
 
 
-def get_invite_vip_name(self, ctype: CooperationType):
+def get_invite_vip_name(self, ctype: CooperationType, realworld: bool = False):
     if not self.fade_conf:
         return ""
-    return self.fade_conf.get_invite_name(ctype)
+    return self.fade_conf.get_invite_name(ctype, realworld)
 
 
 def next_run(self):
     pass
 
 
-def invite_success_callback(self, ctype: CooperationType, name: str):
+def invite_success_callback(self, ctype: CooperationType, name: str, realworld: bool = False):
     if not self.fade_conf:
         return
-    self.fade_conf.update_invite_history(ctype, name)
+    # [AI-2026-11-19] 现世勾协写独立的时间字段，不占普通勾协的额度
+    self.fade_conf.update_invite_history(ctype, name, realworld)
     self.config.save()
 
 

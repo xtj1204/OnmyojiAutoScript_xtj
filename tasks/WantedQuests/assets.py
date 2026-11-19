@@ -90,6 +90,17 @@ class WantedQuestsAssets:
 	I_WQ_COOPERATION_TYPE_JADE_4 = RuleImage(roi_front=(967,495,218,140), roi_back=(967,495,218,140), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_cooperation_type_jade.png")
 	I_WQ_COOPERATION_TYPE_GOLD_4 = RuleImage(roi_front=(967,495,218,140), roi_back=(967,495,218,140), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_cooperation_type_gold.png")
 
+	# [AI-2026-11-19] 现世勾协标记：卡片左侧红色竖条「现世妖怪」+ 左上角「享」徽标。
+	# 两者任一命中即认为是现世（实机帧：目标卡 1.000，非现世卡最高 0.346）。
+	I_WQ_COOPERATION_REALWORLD_BANNER_1 = RuleImage(roi_front=(129,168,33,120), roi_back=(115,150,60,150), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_realworld_banner.png")
+	I_WQ_COOPERATION_REALWORLD_BADGE_1 = RuleImage(roi_front=(121,305,40,40), roi_back=(112,295,60,60), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_realworld_badge.png")
+	I_WQ_COOPERATION_REALWORLD_BANNER_2 = RuleImage(roi_front=(413,168,33,120), roi_back=(399,150,60,150), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_realworld_banner.png")
+	I_WQ_COOPERATION_REALWORLD_BADGE_2 = RuleImage(roi_front=(405,305,40,40), roi_back=(396,295,60,60), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_realworld_badge.png")
+	I_WQ_COOPERATION_REALWORLD_BANNER_3 = RuleImage(roi_front=(697,168,33,120), roi_back=(683,150,60,150), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_realworld_banner.png")
+	I_WQ_COOPERATION_REALWORLD_BADGE_3 = RuleImage(roi_front=(689,305,40,40), roi_back=(680,295,60,60), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_realworld_badge.png")
+	I_WQ_COOPERATION_REALWORLD_BANNER_4 = RuleImage(roi_front=(981,168,33,120), roi_back=(967,150,60,150), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_realworld_banner.png")
+	I_WQ_COOPERATION_REALWORLD_BADGE_4 = RuleImage(roi_front=(973,305,40,40), roi_back=(964,295,60,60), threshold=0.8, method="Template matching", file="./tasks/WantedQuests/invite/wq_realworld_badge.png")
+
 
 	# Ocr Rule Assets
 	# 邀请好友界面 好友列表第一列 

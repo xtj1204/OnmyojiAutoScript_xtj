@@ -502,11 +502,14 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
         # 供 FindJade 汇总「邀请状态」与判断是否提前结束小号循环
         self.last_invite_results = []
         self.last_coop_types = []
+        # [AI-2026-11-19] 面板上出现过的协作是否现世（与 last_coop_types 一一对应）
+        self.last_coop_realworld = []
         if not any(self.appear(button) for button in self.cooperation_buttons()):
             return False
 
         ret = self.get_cooperation_info()
         self.last_coop_types = [item['type'] for item in ret]
+        self.last_coop_realworld = [(item['type'], bool(item.get('realworld'))) for item in ret]
         if len(ret) == 0:
             logger.info("no Cooperation found")
             return False
@@ -527,14 +530,15 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             index = 0
             item['inviteResult'] = False
             if name_all is None:
-                name = self.get_invite_vip_name(item['type'])
+                name = self.get_invite_vip_name(item['type'], bool(item.get('realworld')))
             else:
                 name = name_all
             # [AI-2026-11-15] 名字为空 = 大号 13 小时内已被邀请过（get_invite_name 返回 ""）。
             # 直接跳过：否则会拿空关键字去好友列表里白试 5 次（约 100 秒）并记成失败。
             if not name:
                 logger.info("cooperationType %s needs no invite, skipped", item['type'])
-                self.last_invite_results.append({'type': item['type'], 'name': '', 'success': None})
+                self.last_invite_results.append({'type': item['type'], 'name': '',
+                                                 'success': None, 'realworld': bool(item.get('realworld'))})
                 continue
             logger.warning("find cooperationType %s ,start invite %s", item['type'], name)
             while index < 5:
@@ -549,7 +553,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                 self.screenshot()
             # 邀请追踪一起吧,只有邀请成功才追踪
             if item['inviteResult']:
-                self.invite_success_callback(item['type'], name)
+                self.invite_success_callback(item['type'], name, bool(item.get('realworld')))
                 if (self.get_config()).cooperation_only:
                     logger.info("start trace_one")
                     self.trace_one(item['inviteBtn'])
@@ -558,6 +562,7 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                 'type': item['type'],
                 'name': name,
                 'success': bool(item['inviteResult']),
+                'realworld': bool(item.get('realworld')),
             })
         return ret
 
@@ -618,7 +623,14 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
             if not self.appear(btn):
                 continue
             if self.appear(self.__getattribute__("I_WQ_COOPERATION_TYPE_JADE_" + str(index + 1))):
-                retList.append({'type': CooperationType.Jade, 'inviteBtn': btn})
+                # [AI-2026-11-19] 现世勾协：勾玉 +（红色竖条「现世妖怪」或 左上角「享」徽标），
+                # 两者任一命中即判为现世；日志里带上两者分数来源，便于事后核对误判。
+                banner = self.appear(self.__getattribute__(f"I_WQ_COOPERATION_REALWORLD_BANNER_{index + 1}"))
+                badge = self.appear(self.__getattribute__(f"I_WQ_COOPERATION_REALWORLD_BADGE_{index + 1}"))
+                logger.info("cooperation jade at %s, realworld=%s (banner=%s badge=%s)",
+                            index + 1, banner or badge, banner, badge)
+                retList.append({'type': CooperationType.Jade, 'inviteBtn': btn,
+                                'realworld': banner or badge})
                 continue
             if self.appear(self.__getattribute__("I_WQ_COOPERATION_TYPE_DOG_FOOD_" + str(index + 1))):
                 retList.append({'type': CooperationType.Food, 'inviteBtn': btn})
@@ -656,10 +668,10 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
     def need_invite_vip(self):
         return bool(self.get_config().invite_friend_name)
 
-    def get_invite_vip_name(self, ctype: CooperationType):
+    def get_invite_vip_name(self, ctype: CooperationType, realworld: bool = False):
         return self.get_config().invite_friend_name
 
-    def invite_success_callback(self, ctype: CooperationType, name):
+    def invite_success_callback(self, ctype: CooperationType, name, realworld: bool = False):
         """
            邀请成功回调
         @param ctype:
