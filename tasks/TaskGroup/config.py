@@ -65,6 +65,7 @@ class GroupTaskChoice(str, Enum):
     HeroTest = 'HeroTest'
     FindJade = 'FindJade'
     FriendBattle = 'FriendBattle'
+    TicketShop = 'TicketShop'
     MemoryScrolls = 'MemoryScrolls'
     # Guild
     KekkaiUtilize = 'KekkaiUtilize'

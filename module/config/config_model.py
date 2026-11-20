@@ -81,6 +81,7 @@ from tasks.Hyakkiyakou.config import Hyakkiyakou
 from tasks.HeroTest.config import HeroTest
 from tasks.FindJade.config import FindJade
 from tasks.FriendBattle.config import FriendBattle
+from tasks.TicketShop.config import TicketShop
 from tasks.MemoryScrolls.config import MemoryScrolls
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -151,6 +152,7 @@ class ConfigModel(ConfigBase):
     hero_test: HeroTest = Field(default_factory=HeroTest)
     find_jade: FindJade = Field(default_factory=FindJade)
     friend_battle: FriendBattle = Field(default_factory=FriendBattle)
+    ticket_shop: TicketShop = Field(default_factory=TicketShop)
     memory_scrolls: MemoryScrolls = Field(default_factory=MemoryScrolls)
 
     # 这些是每周任务

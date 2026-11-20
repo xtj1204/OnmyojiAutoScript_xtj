@@ -36,6 +36,7 @@ class ConfigMenu:
             "HeroTest",
             "FindJade",
             "FriendBattle",
+            "TicketShop",
             "MemoryScrolls"
         ]
         # 阴阳寮
