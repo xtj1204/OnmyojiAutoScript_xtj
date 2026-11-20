@@ -24,6 +24,9 @@ class TicketAccountInfo(AccountInfo):
     """
     ticket_status: str = Field(default="", description='ticket_status_help',
                                json_schema_extra={'type': 'status'})
+    # [AI-2026-11-20] 进寄售屋时顺手记下的持有寄售券数量，只读展示
+    ticket_amount: str = Field(default="", description='ticket_amount_help',
+                               json_schema_extra={'type': 'status'})
 
 
 class TicketShop(ConfigBase):

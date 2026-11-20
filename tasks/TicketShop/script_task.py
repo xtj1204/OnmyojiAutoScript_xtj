@@ -43,8 +43,9 @@ class ScriptTask(Buy, MallNavbar):
                 continue
             switched = True
 
+            amount = None
             try:
-                status, ok = self._exchange_ticket()
+                status, ok, amount = self._exchange_ticket()
             except RequestHumanTakeover:
                 raise
             except Exception as e:
@@ -52,6 +53,9 @@ class ScriptTask(Buy, MallNavbar):
                 status, ok = f'执行异常({type(e).__name__})', False
 
             info.ticket_status = status
+            if amount is not None:
+                # [AI-2026-11-20] 记录当前的寄售券持有数，方便在配置页直接看
+                info.ticket_amount = str(amount)
             if ok:
                 # 成功买满才记时间，供下周判断；勾玉不足/失败不记，下轮继续重试
                 info.last_complete_time = datetime.now()
@@ -93,19 +97,21 @@ class ScriptTask(Buy, MallNavbar):
         # [AI-2026-11-20] 先读数字再找商品：售罄后商品会挪到最后一格，
         # 用固定槽位等它会超时，但「本周剩余数量」标签的位置不变。
         self.screenshot()
+        # 顶栏第 5 个资源位就是寄售券持有数量（实机核对：23176/0/6000 中取 6000）
+        amount = self.mall_resource(5)
         remain = self.O_CON_NUMBER.ocr(self.device.image)
         if not isinstance(remain, int):
-            return '界面异常(读不到剩余数量)', False
+            return '界面异常(读不到剩余数量)', False, amount
         if remain == 0:
-            logger.info("寄售券：本周剩余 0 次，已兑换")
-            return '已兑换', True
+            logger.info("寄售券：本周剩余 0 次，已兑换（持有 %s）", amount)
+            return '已兑换', True, amount
 
         jade = self.mall_resource(3)
         if not isinstance(jade, int):
-            return '界面异常(读不到勾玉)', False
+            return '界面异常(读不到勾玉)', False, amount
         if jade < threshold:
-            logger.warning("寄售券：勾玉 %s 低于门槛 %s，跳过", jade, threshold)
-            return f'勾玉不足({jade})', False
+            logger.warning("寄售券：勾玉 %s 低于门槛 %s，跳过（持有 %s）", jade, threshold, amount)
+            return f'勾玉不足({jade})', False, amount
 
         logger.info("寄售券：剩余 %s 次，勾玉 %s，开始兑换", remain, jade)
         result = self.buy_more(self.I_CON_TICKET)
@@ -114,15 +120,16 @@ class ScriptTask(Buy, MallNavbar):
             self.screenshot()
             after = self.O_CON_NUMBER.ocr(self.device.image)
             if after == 0:
-                return '已兑换', True
-            return f'购买失败(剩余 {after})', False
+                return '已兑换', True, self.mall_resource(5)
+            return f'购买失败(剩余 {after})', False, self.mall_resource(5)
 
         self.screenshot()
         after = self.O_CON_NUMBER.ocr(self.device.image)
+        amount = self.mall_resource(5)
         if after == 0:
-            logger.info("寄售券：兑换完成，剩余 0 次")
-            return '已兑换', True
-        return f'购买失败(剩余 {after})', False
+            logger.info("寄售券：兑换完成，剩余 0 次（持有 %s）", amount)
+            return '已兑换', True, amount
+        return f'购买失败(剩余 {after})', False, amount
 
     def _seed_from_find_jade(self, conf):
         """首次运行：把小号列表从「寻找协作」复制一份，省得重填。"""
