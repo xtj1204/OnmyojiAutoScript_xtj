@@ -1,4 +1,6 @@
 # This Python file uses the following encoding: utf-8
+from datetime import datetime, timedelta
+
 from module.exception import RequestHumanTakeover, TaskEnd
 from module.logger import logger
 from tasks.Component.Buy.buy import Buy
@@ -27,10 +29,11 @@ class ScriptTask(Buy, MallNavbar):
         for info in conf.sup_account_list:
             if not info.is_valid():
                 continue
-            # [AI-2026-11-20] 轮到该号先清空状态，跑完再写，避免残留上一轮
-            if info.ticket_status:
-                info.ticket_status = ''
-                self.config.save()
+            # [AI-2026-11-20] 本周已买满的号直接跳过，不切号：切号一次约 40~60 秒，
+            # 15 个号空跑一轮要十分钟。状态不再在轮次开始时清空，否则无法判断。
+            if self._is_done_this_week(info):
+                logger.info("寄售券：%s-%s 本周已兑换，跳过登录", info.character, info.svr)
+                continue
 
             if not SwitchAccount(self.config, self.device, info).switchAccount():
                 logger.warning("寄售券：切换 %s-%s 失败，跳过该号", info.character, info.svr)
@@ -49,6 +52,9 @@ class ScriptTask(Buy, MallNavbar):
                 status, ok = f'执行异常({type(e).__name__})', False
 
             info.ticket_status = status
+            if ok:
+                # 成功买满才记时间，供下周判断；勾玉不足/失败不记，下轮继续重试
+                info.last_complete_time = datetime.now()
             self.config.save()
             all_success = all_success and ok
             logger.info("寄售券：%s-%s -> %s", info.character, info.svr, status)
@@ -59,6 +65,22 @@ class ScriptTask(Buy, MallNavbar):
         # 整轮全部「已兑换」才算成功（用户确认）
         self.next_run('TicketShop', success=all_success)
         raise TaskEnd('TicketShop')
+
+    @staticmethod
+    def _week_start(now: datetime) -> datetime:
+        """本周起点：周一 09:00（游戏周常刷新时间，用户确认）。
+
+        周一 09:00 之前仍算上一周，所以往前推 7 天。
+        """
+        monday = now - timedelta(days=now.weekday())
+        start = monday.replace(hour=9, minute=0, second=0, microsecond=0)
+        if now < start:
+            start -= timedelta(days=7)
+        return start
+
+    def _is_done_this_week(self, info) -> bool:
+        return (info.ticket_status == '已兑换'
+                and info.last_complete_time >= self._week_start(datetime.now()))
 
     def _exchange_ticket(self):
         """在当前小号上交兑换，返回 (状态文案, 是否成功)。"""
