@@ -74,6 +74,12 @@ class ScriptTask(GameUi, FindJadeAssets):
             return f'{label}：未处理'
         return f'{label}：无协作'
 
+    def _persist_invite_status(self, wq, accountInfo):
+        """[AI-2026-11-20] 邀请阶段结束时的落盘点：此时结果已确定，
+        后续打悬赏怪失败也不影响这条记录。"""
+        accountInfo.invite_status = self._build_invite_status(wq)
+        self.save_config()
+
     def _switch_back(self):
         """按 return_account 切回；失败重试 2 次仍不成功则交人工（游戏会停在登录页，继续跑会连累后续任务）"""
         account = self.fade_conf.return_account
@@ -113,6 +119,8 @@ class ScriptTask(GameUi, FindJadeAssets):
             #
             wq = self.CreatObjectFromModule("WantedQuests", config=self.config, device=self.device)
             wq.fade_conf = self.fade_conf
+            # [AI-2026-11-20] 邀请一结束就写状态：之后继续打悬赏怪失败也不会丢记录
+            wq.invite_done_callback = lambda: self._persist_invite_status(wq, accountInfo)
 
             try:
                 # [AI-2026-11-10] 从 runhey 的 harvest() 精简而来（原逻辑挂在 Restart/login.py 的

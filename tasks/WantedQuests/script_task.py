@@ -570,6 +570,12 @@ class ScriptTask(WQExplore, SecretScriptTask, WantedQuestsAssets):
                 'success': bool(item['inviteResult']),
                 'realworld': bool(item.get('realworld')),
             })
+
+        # [AI-2026-11-20] 邀请这一步结束就通知调用方落盘：后续打悬赏怪失败（如替补式神不足）
+        # 不该把已经发出的邀请记录丢掉。FindJade 会挂 invite_done_callback。
+        callback = getattr(self, 'invite_done_callback', None)
+        if callback:
+            callback()
         return ret
 
     def cooperation_invite(self, btn: RuleImage, name: str):
