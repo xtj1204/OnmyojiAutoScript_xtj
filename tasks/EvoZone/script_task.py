@@ -99,6 +99,10 @@ class ScriptTask(GeneralBattle, GeneralInvite, GeneralBuff, GeneralRoom, GameUi,
         while True:
             self.screenshot()
             if self.appear(self.I_FORM_TEAM):
+                # [AI-2026-11-23] 组队按钮出现时层数列表可能仍在入场动画里，
+                # 此时 OCR 读不到任何层数，list_find 会盲滑到列表底部
+                # （Yuu-夜摩天殿 实例复现）。等列表渲染完再往下走。
+                sleep(1.5)
                 return True
             if self.appear_then_click(kirintype, interval=1):
                 continue
