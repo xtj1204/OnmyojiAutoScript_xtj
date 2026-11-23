@@ -53,8 +53,9 @@ class ScriptTask(Buy, MallNavbar):
                 status, ok = f'执行异常({type(e).__name__})', False
 
             info.ticket_status = status
-            if amount is not None:
+            if amount:
                 # [AI-2026-11-20] 记录当前的寄售券持有数，方便在配置页直接看
+                # [AI-2026-11-23] 读不到时 amount 是空串，保留上一次的值，别清空
                 info.ticket_amount = str(amount)
             if ok:
                 # 成功买满才记时间，供下周判断；勾玉不足/失败不记，下轮继续重试
@@ -86,8 +87,32 @@ class ScriptTask(Buy, MallNavbar):
         return (info.ticket_status == '已兑换'
                 and info.last_complete_time >= self._week_start(datetime.now()))
 
+    def _read_stable(self, rule, tries=5, interval=0.6, allow_zero=False, need=2):
+        """连续读到一致的值才采信，绕开入场动画和单帧抖动。
+
+        [AI-2026-11-23] 御坂0003 实有 1849 勾玉，切号后第一帧读到 0，
+        被当成真实值判成「勾玉不足」。单帧读取不可信，改为多帧一致才返回。
+        读不稳时返回 None，由调用方报「界面异常」，不再猜测。
+        """
+        last = None
+        hits = 0
+        for _ in range(tries):
+            self.screenshot()
+            value = rule.ocr(self.device.image)
+            ok = isinstance(value, int) and (allow_zero or value > 0)
+            if not ok:
+                last, hits = None, 0
+            elif value == last:
+                hits += 1
+                if hits >= need:
+                    return value
+            else:
+                last, hits = value, 1
+            self.device.sleep(interval)
+        return None
+
     def _exchange_ticket(self):
-        """在当前小号上交兑换，返回 (状态文案, 是否成功)。"""
+        """在当前小号上交兑换，返回 (状态文案, 是否成功, 持有数量)。"""
         threshold = self.config.ticket_shop.ticket_shop_config.jade_threshold
 
         self.goto_page(page_mall_recommend, confirm_wait=2.5, accepted_pages=(page_mall,))
@@ -96,40 +121,45 @@ class ScriptTask(Buy, MallNavbar):
 
         # [AI-2026-11-20] 先读数字再找商品：售罄后商品会挪到最后一格，
         # 用固定槽位等它会超时，但「本周剩余数量」标签的位置不变。
-        self.screenshot()
+        # [AI-2026-11-23] 进入寄售屋后先给数字一点渲染时间，再按多帧一致读数
+        self.device.sleep(1.0)
         # 顶栏第 5 个资源位就是寄售券持有数量（实机核对：23176/0/6000 中取 6000）
-        amount = self.mall_resource(5)
-        remain = self.O_CON_NUMBER.ocr(self.device.image)
-        if not isinstance(remain, int):
-            return '界面异常(读不到剩余数量)', False, amount
-        if remain == 0:
-            logger.info("寄售券：本周剩余 0 次，已兑换（持有 %s）", amount)
-            return '已兑换', True, amount
+        amount = self._read_stable(self.O_MALL_RESOURCE_5)
+        amount_text = '' if amount is None else str(amount)
 
-        jade = self.mall_resource(3)
-        if not isinstance(jade, int):
-            return '界面异常(读不到勾玉)', False, amount
+        # 剩余次数允许为 0（本周已兑换），所以放宽 allow_zero 并要求连读 3 帧稳定
+        remain = self._read_stable(self.O_CON_NUMBER, allow_zero=True, need=3)
+        if remain is None:
+            return '界面异常(读不到剩余数量)', False, amount_text
+        if remain == 0:
+            logger.info("寄售券：本周剩余 0 次，已兑换（持有 %s）", amount_text)
+            return '已兑换', True, amount_text
+
+        jade = self._read_stable(self.O_MALL_RESOURCE_3)
+        if jade is None:
+            return '界面异常(读不到勾玉)', False, amount_text
         if jade < threshold:
-            logger.warning("寄售券：勾玉 %s 低于门槛 %s，跳过（持有 %s）", jade, threshold, amount)
-            return f'勾玉不足({jade})', False, amount
+            logger.warning("寄售券：勾玉 %s 低于门槛 %s，跳过（持有 %s）", jade, threshold, amount_text)
+            return f'勾玉不足({jade})', False, amount_text
 
         logger.info("寄售券：剩余 %s 次，勾玉 %s，开始兑换", remain, jade)
         result = self.buy_more(self.I_CON_TICKET)
         if result is False:
             # 弹窗里提示已达上限/勾玉不足都会走到这里，复核一次再定性
-            self.screenshot()
-            after = self.O_CON_NUMBER.ocr(self.device.image)
+            after = self._read_stable(self.O_CON_NUMBER, allow_zero=True, need=3)
+            held = self._read_stable(self.O_MALL_RESOURCE_5)
+            held_text = '' if held is None else str(held)
             if after == 0:
-                return '已兑换', True, self.mall_resource(5)
-            return f'购买失败(剩余 {after})', False, self.mall_resource(5)
+                return '已兑换', True, held_text
+            return f'购买失败(剩余 {after})', False, held_text
 
-        self.screenshot()
-        after = self.O_CON_NUMBER.ocr(self.device.image)
-        amount = self.mall_resource(5)
+        after = self._read_stable(self.O_CON_NUMBER, allow_zero=True, need=3)
+        held = self._read_stable(self.O_MALL_RESOURCE_5)
+        held_text = '' if held is None else str(held)
         if after == 0:
-            logger.info("寄售券：兑换完成，剩余 0 次（持有 %s）", amount)
-            return '已兑换', True, amount
-        return f'购买失败(剩余 {after})', False, amount
+            logger.info("寄售券：兑换完成，剩余 0 次（持有 %s）", held_text)
+            return '已兑换', True, held_text
+        return f'购买失败(剩余 {after})', False, held_text
 
     def _seed_from_find_jade(self, conf):
         """首次运行：把小号列表从「寻找协作」复制一份，省得重填。"""
