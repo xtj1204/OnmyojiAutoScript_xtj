@@ -3,11 +3,20 @@ from datetime import datetime, timedelta
 
 from module.exception import RequestHumanTakeover, TaskEnd
 from module.logger import logger
+from module.atom.ocr import RuleOcr
 from tasks.Component.Buy.buy import Buy
 from tasks.Component.SwitchAccount.switch_account import SwitchAccount
 from tasks.GameUi.page import page_mall, page_mall_recommend
 from tasks.TicketShop.config import TicketAccountInfo
 from tasks.WeeklyPurchase.mall.navbar import MallNavbar
+
+# [AI-2026-11-24] 勾玉位单独用 Digit 模式。
+# 共用的 O_MALL_RESOURCE_3 是 Quantity 模式，内部先做文本检测再取框，
+# 检测不出来就直接返回 0（御坂0003 连续 5 帧全 0，而同帧同 ROI 用 Digit
+# 能稳定读出 1869）。Digit 先走整行识别，容错更高。
+# 不动共用素材，WeeklyPurchase 等其他任务不受影响。
+O_TICKET_JADE = RuleOcr(roi=(578, 11, 87, 38), area=(578, 11, 87, 38),
+                        mode="Digit", method="Default", keyword="", name="ticket_jade")
 
 
 class ScriptTask(Buy, MallNavbar):
@@ -135,7 +144,7 @@ class ScriptTask(Buy, MallNavbar):
             logger.info("寄售券：本周剩余 0 次，已兑换（持有 %s）", amount_text)
             return '已兑换', True, amount_text
 
-        jade = self._read_stable(self.O_MALL_RESOURCE_3)
+        jade = self._read_stable(O_TICKET_JADE)
         if jade is None:
             return '界面异常(读不到勾玉)', False, amount_text
         if jade < threshold:
