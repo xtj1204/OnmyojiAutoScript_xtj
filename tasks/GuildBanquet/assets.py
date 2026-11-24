@@ -12,7 +12,9 @@ class GuildBanquetAssets:
 
 	# Image Rule Assets
 	# 寮宴会集结标志 
-	I_BANQUET_FLAG = RuleImage(roi_front=(1035,12,33,60), roi_back=(1035,12,33,60), threshold=0.8, method="Template matching", file="./tasks/GuildBanquet/res/res_banquet_flag.png")
+	# [AI-2026-11-24] roi_back 放宽成横向搜索条：游戏 UI 改版后标志从 x=1035 挪到 973，
+	# 原来 roi_back 与模板等大等于固定点死比，直接失配（0.0775）。宽 ROI 覆盖 880~1100，新旧位置都能命中。
+	I_BANQUET_FLAG = RuleImage(roi_front=(973,12,33,60), roi_back=(880,4,220,84), threshold=0.8, method="Template matching", file="./tasks/GuildBanquet/res/res_banquet_flag.png")
 	# 经验已满标志 
 	I_BANQUET_EXP_FULL = RuleImage(roi_front=(28,408,18,16), roi_back=(7,138,106,366), threshold=0.8, method="Template matching", file="./tasks/GuildBanquet/res/res_banquet_exp_full.png")
 	# 宴会式神轮换标志 
