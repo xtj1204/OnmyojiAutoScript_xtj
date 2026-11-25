@@ -65,7 +65,9 @@ class WeeklyTriflesAssets:
 	# 二维码 
 	I_WT_QR_CODE = RuleImage(roi_front=(473,161,336,96), roi_back=(404,112,483,168), threshold=0.65, method="Template matching", file="./tasks/WeeklyTrifles/collect/collect_wt_qr_code.png")
 	# 式神图鉴头像旁边的分享按钮 
-	I_WT_SHARE = RuleImage(roi_front=(331,282,60,53), roi_back=(133,243,270,120), threshold=0.8, method="Template matching", file="./tasks/WeeklyTrifles/collect/collect_wt_share.png")
+	# [AI-2026-11-25] 图鉴分享按钮改版：图标从左侧中部 (331,282) 挪到「收集进度」文字右侧，
+	# 尺寸也从 60x53 变成 38x38，旧模板全屏最高只有 0.447。模板已按新界面重新截取。
+	I_WT_SHARE = RuleImage(roi_front=(818,606,38,38), roi_back=(790,578,100,95), threshold=0.8, method="Template matching", file="./tasks/WeeklyTrifles/collect/collect_wt_share.png")
 
 
 	# Image Rule Assets
