@@ -165,7 +165,13 @@ class ScriptTask(BaseExploration):
             self.goto_page(pages.page_exp_main)
             return
         self.fill_shikigami()
-        self.appear_then_click(self.I_E_AUTO_ROTATE_OFF, interval=0.8)
+        # [AI-2026-11-27] 设置面板收起需 0.8~1.3s，点确定后 0.30s 就点轮换会被面板吞掉（实测 0.30s 无效 / 1.5s 生效）
+        self.wait_until_disappear(self.I_E_OPEN_SETTINGS, timeout=3)
+        clicked = self.appear_then_click(self.I_E_AUTO_ROTATE_OFF, interval=0.8)
+        # [AI-2026-11-27] 点完复核一次：OFF 仍在说明点击未生效，打 warning 便于定位（原逻辑静默失败）
+        self.screenshot()
+        if clicked and self.appear(self.I_E_AUTO_ROTATE_OFF):
+            logger.warning('Switch auto rotate failed, still OFF after click')
 
     def run_on_exp_exit(self):
         if not self.need_exit: # 不需要退出则点取消, 通常是直接在探索界面启动脚本(或退出期间在主界面再次识别到需要攻击的怪物)
